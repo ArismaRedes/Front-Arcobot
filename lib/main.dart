@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/config/env.dart';
 import 'package:front_arcobot/core/config/router.dart';
+import 'package:front_arcobot/core/theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   Env.validate();
   runApp(const ProviderScope(child: ArcobotApp()));
 }
@@ -19,6 +22,7 @@ class ArcobotApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'ArcoBot',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
       routerConfig: router,
     );
   }

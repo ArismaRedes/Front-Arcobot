@@ -16,7 +16,7 @@ class LogtoService {
 
   Future<void> signIn() {
     return _client.signIn(
-      Env.logtoRedirectUri,
+      Env.logtoEffectiveRedirectUri,
       extraParams: {'organization_id': Env.logtoOrganizationId},
     );
   }
@@ -28,7 +28,7 @@ class LogtoService {
     }
 
     return _client.signIn(
-      Env.logtoRedirectUri,
+      Env.logtoEffectiveRedirectUri,
       directSignIn: 'social:$target',
       extraParams: {'organization_id': Env.logtoOrganizationId},
     );
@@ -40,7 +40,7 @@ class LogtoService {
       return;
     }
 
-    await _client.signOut(Env.logtoPostLogoutRedirectUri);
+    await _client.signOut(Env.logtoEffectivePostLogoutRedirectUri);
   }
 
   Future<bool> isAuthenticated() {

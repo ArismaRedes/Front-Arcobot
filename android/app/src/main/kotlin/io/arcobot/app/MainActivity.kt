@@ -1,4 +1,4 @@
-package com.example.front_arcobot
+package io.arcobot.app
 
 import io.flutter.embedding.android.FlutterActivity
 

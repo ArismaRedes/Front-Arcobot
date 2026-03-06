@@ -13,6 +13,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
   go_router: ^14.8.1
   logto_dart_sdk: ^3.0.0
+  flutter_svg: ^2.0.10+1
+  mobile_scanner: ^5.2.3
 
 dev_dependencies:
   flutter_lints: ^5.0.0
@@ -21,3 +23,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/

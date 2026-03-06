@@ -21,8 +21,11 @@ final authControllerProvider =
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repository) : super(const AuthState.unknown()) {
-    unawaited(restoreSession());
+  AuthController(this._repository, {bool autoRestore = true})
+      : super(const AuthState.unknown()) {
+    if (autoRestore) {
+      unawaited(restoreSession());
+    }
   }
 
   final AuthRepository _repository;
@@ -30,10 +33,17 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> restoreSession() async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
 
-    final hasSession = await _repository.hasSession();
-    state = hasSession
-        ? const AuthState(status: AuthStatus.authenticated)
-        : const AuthState(status: AuthStatus.unauthenticated);
+    try {
+      final hasSession = await _repository.hasSession();
+      state = hasSession
+          ? const AuthState(status: AuthStatus.authenticated)
+          : const AuthState(status: AuthStatus.unauthenticated);
+    } catch (error) {
+      state = AuthState(
+        status: AuthStatus.failure,
+        errorMessage: error.toString(),
+      );
+    }
   }
 
   Future<void> signIn() async {

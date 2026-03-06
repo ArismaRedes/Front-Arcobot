@@ -12,11 +12,19 @@ Se creó el primer flujo de autenticación con Logto siguiendo la arquitectura p
 - `features/auth/presentation/login_screen.dart`: pantalla de login.
 - `core/config/router.dart` + `main.dart`: navegación protegida (`/login` y `/dashboard`).
 
+> Nota: la sección de estructura amplia más abajo es el **roadmap objetivo**; actualmente solo está implementado el módulo inicial de auth/dashboard.
+
 ## Dependencias
 
 ```bash
 flutter pub get
 ```
+
+## Recursos visuales (imagenes)
+
+Coloca tus imagenes en `assets/images/` usando las rutas definidas en:
+
+- `assets/images/README.md`
 
 ## Variables de entorno (archivo local)
 
@@ -45,13 +53,20 @@ flutter run \
 ```
 
 `API_BASE_URL` es opcional y solo aplica cuando consumas API propia desde `core/network/api_client.dart`.
+`LOGTO_REDIRECT_URI` y `LOGTO_POST_LOGOUT_REDIRECT_URI` también son opcionales:
+- En mobile se usan por defecto `io.arcobot.app://callback` y `io.arcobot.app://logout-callback`.
+- En web se usa por defecto `https://tu-dominio/callback.html` (detectado automáticamente con el origin actual).
 
-## Setup Android y Web para Logto SDK
+## Setup Android, iOS y Web para Logto SDK
 
-- `android/app/build.gradle.kts`: usar `minSdk = 18` o mayor.
+- `android/app/build.gradle.kts`:
+  - configurar `applicationId/namespace` reales (no `com.example`).
+  - para release, crear `android/key.properties` con keystore de producción.
 - `android/app/src/main/AndroidManifest.xml`:
   - definir backup seguro y exclusión de `FlutterSecureStorage` con `@xml/backup_rules`.
   - registrar `com.linusu.flutter_web_auth_2.CallbackActivity` con scheme `io.arcobot.app`.
+- `ios/Runner/Info.plist`:
+  - registrar `CFBundleURLTypes` con scheme `io.arcobot.app`.
 - `web/callback.html`: archivo agregado para cerrar el callback web con `postMessage`.
 
 ## Stack
@@ -59,9 +74,7 @@ flutter run \
 - **Estado:** Riverpod
 - **Navegación:** GoRouter
 - **HTTP:** Dio + interceptor JWT
-- **BLE:** flutter_blue_plus (solo mobile)
-- **Animaciones:** Lottie
-- **Drag & Drop:** flutter_draggable
+- **Auth:** logto_dart_sdk
 
 ---
 

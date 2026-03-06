@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Env {
   const Env._();
 
@@ -31,12 +33,12 @@ class Env {
 
   static const String logtoRedirectUri = String.fromEnvironment(
     'LOGTO_REDIRECT_URI',
-    defaultValue: 'io.arcobot.app://callback',
+    defaultValue: '',
   );
 
   static const String logtoPostLogoutRedirectUri = String.fromEnvironment(
     'LOGTO_POST_LOGOUT_REDIRECT_URI',
-    defaultValue: 'io.arcobot.app://logout-callback',
+    defaultValue: '',
   );
 
   static const String logtoScopesRaw = String.fromEnvironment(
@@ -59,6 +61,49 @@ class Env {
       .map((scope) => scope.trim())
       .where((scope) => scope.isNotEmpty)
       .toList(growable: false);
+
+  static String get _defaultRedirectUri {
+    return kIsWeb
+        ? '${Uri.base.origin}/callback.html'
+        : 'io.arcobot.app://callback';
+  }
+
+  static String get _defaultPostLogoutRedirectUri {
+    return kIsWeb
+        ? '${Uri.base.origin}/callback.html'
+        : 'io.arcobot.app://logout-callback';
+  }
+
+  static bool _isWebCompatibleRedirectUri(String value) {
+    final parsed = Uri.tryParse(value);
+    if (parsed == null) {
+      return false;
+    }
+    final scheme = parsed.scheme.toLowerCase();
+    return scheme == 'http' || scheme == 'https';
+  }
+
+  static String get logtoEffectiveRedirectUri {
+    final configured = logtoRedirectUri.trim();
+    if (configured.isEmpty) {
+      return _defaultRedirectUri;
+    }
+    if (kIsWeb && !_isWebCompatibleRedirectUri(configured)) {
+      return _defaultRedirectUri;
+    }
+    return configured;
+  }
+
+  static String get logtoEffectivePostLogoutRedirectUri {
+    final configured = logtoPostLogoutRedirectUri.trim();
+    if (configured.isEmpty) {
+      return _defaultPostLogoutRedirectUri;
+    }
+    if (kIsWeb && !_isWebCompatibleRedirectUri(configured)) {
+      return _defaultPostLogoutRedirectUri;
+    }
+    return configured;
+  }
 
   static void validate() {
     final missing = <String>[];

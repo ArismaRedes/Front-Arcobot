@@ -12,7 +12,7 @@ String? authRedirect({
   switch (authState.status) {
     case AuthStatus.unknown:
     case AuthStatus.loading:
-      return null;
+      return isAtPublicPath ? null : loginPath;
     case AuthStatus.unauthenticated:
     case AuthStatus.failure:
       return isAtPublicPath ? null : loginPath;
