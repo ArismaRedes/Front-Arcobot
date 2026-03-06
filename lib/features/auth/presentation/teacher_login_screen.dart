@@ -6,13 +6,59 @@ import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
 import 'package:go_router/go_router.dart';
 
-class TeacherLoginScreen extends ConsumerWidget {
+class TeacherLoginScreen extends ConsumerStatefulWidget {
   const TeacherLoginScreen({super.key});
 
   static const routePath = '/teacher-login';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeacherLoginScreen> createState() => _TeacherLoginScreenState();
+}
+
+class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitEmailPassword() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa un correo valido')),
+      );
+      return;
+    }
+    if (password.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa tu contrasena')),
+      );
+      return;
+    }
+
+    await ref.read(authControllerProvider.notifier).signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final loading = authState.status == AuthStatus.loading;
     final theme = Theme.of(context);
@@ -83,7 +129,7 @@ class TeacherLoginScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: ArcobotSpacing.xs),
                           Text(
-                            'Accede para gestionar tu clase',
+                            'Inicia con correo y contrasena o Facebook',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyLarge?.copyWith(
                               color: ArcobotColors.textSecondary,
@@ -111,12 +157,46 @@ class TeacherLoginScreen extends ConsumerWidget {
                             ),
                           ],
                           const SizedBox(height: ArcobotSpacing.lg),
+                          TextField(
+                            controller: _emailController,
+                            enabled: !loading,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo',
+                              prefixIcon: Icon(Icons.mail_outline_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: ArcobotSpacing.sm),
+                          TextField(
+                            controller: _passwordController,
+                            enabled: !loading,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submitEmailPassword(),
+                            decoration: InputDecoration(
+                              labelText: 'Contrasena',
+                              prefixIcon:
+                                  const Icon(Icons.lock_outline_rounded),
+                              suffixIcon: IconButton(
+                                onPressed: loading
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _obscurePassword = !_obscurePassword;
+                                        });
+                                      },
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: ArcobotSpacing.md),
                           FilledButton.icon(
-                            onPressed: loading
-                                ? null
-                                : () => ref
-                                    .read(authControllerProvider.notifier)
-                                    .signInWithTeacherCredentials(),
+                            onPressed: loading ? null : _submitEmailPassword,
                             icon: loading
                                 ? const SizedBox(
                                     width: 18,
@@ -128,9 +208,7 @@ class TeacherLoginScreen extends ConsumerWidget {
                                   )
                                 : const Icon(Icons.lock_open_rounded),
                             label: Text(
-                              loading
-                                  ? 'Conectando...'
-                                  : 'Iniciar sesion con Logto',
+                              loading ? 'Conectando...' : 'Entrar con correo',
                             ),
                           ),
                           const SizedBox(height: ArcobotSpacing.sm),

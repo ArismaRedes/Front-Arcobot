@@ -9,7 +9,7 @@ class FakeAuthRepository implements AuthRepository {
     this.signInHandler,
     this.signInWithFacebookHandler,
     this.signOutHandler,
-    this.signInWithTeacherCredentialsHandler,
+    this.signInWithEmailAndPasswordHandler,
     this.getAccessTokenHandler,
   });
 
@@ -17,7 +17,8 @@ class FakeAuthRepository implements AuthRepository {
   final Future<void> Function()? signInHandler;
   final Future<void> Function()? signInWithFacebookHandler;
   final Future<void> Function()? signOutHandler;
-  final Future<void> Function()? signInWithTeacherCredentialsHandler;
+  final Future<void> Function(String email, String password)?
+  signInWithEmailAndPasswordHandler;
   final Future<String?> Function()? getAccessTokenHandler;
 
   @override
@@ -34,8 +35,13 @@ class FakeAuthRepository implements AuthRepository {
   Future<void> signOut() => signOutHandler?.call() ?? Future.value();
 
   @override
-  Future<void> signInWithTeacherCredentials() =>
-      signInWithTeacherCredentialsHandler?.call() ?? Future.value();
+  Future<void> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) {
+    return signInWithEmailAndPasswordHandler?.call(email, password) ??
+        Future.value();
+  }
 
   @override
   Future<String?> getAccessToken() =>
@@ -56,19 +62,21 @@ void main() {
     expect(controller.state.errorMessage, isNull);
   });
 
-  test('restoreSession sets unauthenticated when session does not exist',
-      () async {
-    final controller = AuthController(
-      FakeAuthRepository(hasSessionHandler: () async => false),
-      autoRestore: false,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'restoreSession sets unauthenticated when session does not exist',
+    () async {
+      final controller = AuthController(
+        FakeAuthRepository(hasSessionHandler: () async => false),
+        autoRestore: false,
+      );
+      addTearDown(controller.dispose);
 
-    await controller.restoreSession();
+      await controller.restoreSession();
 
-    expect(controller.state.status, AuthStatus.unauthenticated);
-    expect(controller.state.errorMessage, isNull);
-  });
+      expect(controller.state.status, AuthStatus.unauthenticated);
+      expect(controller.state.errorMessage, isNull);
+    },
+  );
 
   test('restoreSession sets failure when session check throws', () async {
     final controller = AuthController(
@@ -82,6 +90,80 @@ void main() {
     await controller.restoreSession();
 
     expect(controller.state.status, AuthStatus.failure);
-    expect(controller.state.errorMessage, contains('session check failed'));
+    expect(
+      controller.state.errorMessage,
+      'No pudimos restaurar tu sesion. Inicia sesion nuevamente.',
+    );
   });
+
+  test('signInWithEmailAndPassword sets authenticated on success', () async {
+    final controller = AuthController(
+      FakeAuthRepository(
+        hasSessionHandler: () async => false,
+        signInWithEmailAndPasswordHandler: (_, __) async {},
+      ),
+      autoRestore: false,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.signInWithEmailAndPassword(
+      email: 'docente@colegio.edu',
+      password: 'test1234',
+    );
+
+    expect(controller.state.status, AuthStatus.authenticated);
+    expect(controller.state.errorMessage, isNull);
+  });
+
+  test(
+    'signInWithEmailAndPassword sets failure when repository throws',
+    () async {
+      final controller = AuthController(
+        FakeAuthRepository(
+          hasSessionHandler: () async => false,
+          signInWithEmailAndPasswordHandler: (_, __) async =>
+              throw Exception('login error'),
+        ),
+        autoRestore: false,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.signInWithEmailAndPassword(
+        email: 'docente@colegio.edu',
+        password: 'bad-password',
+      );
+
+      expect(controller.state.status, AuthStatus.failure);
+      expect(
+        controller.state.errorMessage,
+        'No se pudo iniciar sesion. Intenta nuevamente.',
+      );
+    },
+  );
+
+  test(
+    'signInWithEmailAndPassword maps guard.invalid_input to friendly text',
+    () async {
+      final controller = AuthController(
+        FakeAuthRepository(
+          hasSessionHandler: () async => false,
+          signInWithEmailAndPasswordHandler: (_, __) async =>
+              throw Exception('guard.invalid_input'),
+        ),
+        autoRestore: false,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.signInWithEmailAndPassword(
+        email: 'docente@colegio.edu',
+        password: 'bad-password',
+      );
+
+      expect(controller.state.status, AuthStatus.failure);
+      expect(
+        controller.state.errorMessage,
+        'No pudimos validar los datos. Revisa el correo y la contrasena.',
+      );
+    },
+  );
 }

@@ -69,6 +69,21 @@ flutter run \
   - registrar `CFBundleURLTypes` con scheme `io.arcobot.app`.
 - `web/callback.html`: archivo agregado para cerrar el callback web con `postMessage`.
 
+## Configuracion de Login en Logto (correo/contrasena + Facebook)
+
+En el tenant de Logto:
+
+- habilita `Sign-in experience` con metodo por `Email + Password`.
+- habilita y configura el social connector de Facebook.
+- usa el target del connector en `LOGTO_FACEBOOK_CONNECTOR_TARGET` (por defecto `facebook`).
+
+En la app:
+
+- `TeacherLoginScreen` muestra el formulario propio (correo/contrasena) y el boton de Facebook.
+- la autenticacion se ejecuta via Logto SDK (`logto_dart_sdk`) usando:
+  - `first_screen=identifier:sign_in` + `identifier=email` para correo/contrasena.
+  - `direct_sign_in=social:facebook` para Facebook.
+
 ## Stack
 - **Framework:** Flutter (iOS + Android + Web desde un solo código)
 - **Estado:** Riverpod

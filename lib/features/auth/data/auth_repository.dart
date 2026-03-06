@@ -16,16 +16,22 @@ class AuthRepository {
     await _logtoService.signInWithSocial(Env.logtoFacebookConnectorTarget);
   }
 
+  Future<void> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    await _logtoService.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
   Future<void> signOut() async {
     await _logtoService.signOut();
   }
 
   Future<bool> hasSession() {
     return _logtoService.isAuthenticated();
-  }
-
-  Future<void> signInWithTeacherCredentials() async {
-    await _logtoService.signIn();
   }
 
   Future<String?> getAccessToken() {
