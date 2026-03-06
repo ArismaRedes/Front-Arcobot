@@ -6,8 +6,10 @@ String? authRedirect({
   required String loginPath,
   required String homePath,
   required Set<String> publicPaths,
+  required Set<String> guestOnlyPaths,
 }) {
   final isAtPublicPath = publicPaths.contains(destination);
+  final isAtGuestOnlyPath = guestOnlyPaths.contains(destination);
 
   switch (authState.status) {
     case AuthStatus.unknown:
@@ -17,6 +19,6 @@ String? authRedirect({
     case AuthStatus.failure:
       return isAtPublicPath ? null : loginPath;
     case AuthStatus.authenticated:
-      return isAtPublicPath ? homePath : null;
+      return isAtGuestOnlyPath ? homePath : null;
   }
 }

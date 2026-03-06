@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -12,108 +13,314 @@ class DashboardScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ArcoBot Dashboard'),
-        actions: [
-          TextButton.icon(
-            onPressed: () =>
-                ref.read(authControllerProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Cerrar sesion'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF9FCFF), Color(0xFFF1F6FB)],
+            colors: ArcobotColors.screenGradient,
           ),
         ),
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: Stack(
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bienvenido a ArcoBot',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Gestiona sesiones, revisa actividad y sigue el progreso de tu curso.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF475569),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _MetricTile(
-                            title: 'Clases activas',
-                            value: '03',
-                            icon: Icons.groups_2_outlined,
-                            color: const Color(0xFF0B6E5E),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MetricTile(
-                            title: 'Tareas hoy',
-                            value: '12',
-                            icon: Icons.task_alt_rounded,
-                            color: const Color(0xFF1565C0),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            const Positioned(
+              top: -90,
+              right: -50,
+              child: _BackgroundBubble(
+                size: 220,
+                color: Color(0x333A86FF),
               ),
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Acciones rapidas',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+            const Positioned(
+              bottom: -110,
+              left: -60,
+              child: _BackgroundBubble(
+                size: 260,
+                color: Color(0x3319BFB7),
+              ),
+            ),
+            SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: ArcobotColors.guideTurquoise,
+                          boxShadow: ArcobotShadows.soft,
+                        ),
+                        child: const Icon(
+                          Icons.smart_toy_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
                       ),
+                      const SizedBox(width: ArcobotSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hola, explorador',
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            Text(
+                              'Arcobot te guiará hoy',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton.filledTonal(
+                        onPressed: () =>
+                            ref.read(authControllerProvider.notifier).signOut(),
+                        icon: const Icon(Icons.logout_rounded),
+                        tooltip: 'Cerrar sesion',
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFEFF4FF),
+                          foregroundColor: ArcobotColors.skyBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ArcobotSpacing.lg),
+                  Container(
+                    padding: const EdgeInsets.all(ArcobotSpacing.lg),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(ArcobotRadii.xl),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: ArcobotColors.heroGradient,
+                      ),
+                      boxShadow: ArcobotShadows.soft,
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _QuickActionChip(
-                          icon: Icons.add_box_outlined,
-                          label: 'Crear clase',
+                        Text(
+                          'Continuar aventura',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                          ),
                         ),
-                        _QuickActionChip(
-                          icon: Icons.qr_code_scanner_rounded,
-                          label: 'Escanear codigo',
+                        const SizedBox(height: ArcobotSpacing.xs),
+                        Text(
+                          'Te faltan 2 retos para encender la Isla Numeros',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: const Color(0xFFF1F8FF),
+                          ),
                         ),
-                        _QuickActionChip(
-                          icon: Icons.analytics_outlined,
-                          label: 'Ver reportes',
+                        const SizedBox(height: ArcobotSpacing.md),
+                        ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(ArcobotRadii.pill),
+                          child: const LinearProgressIndicator(
+                            value: 0.68,
+                            minHeight: 14,
+                            backgroundColor: Color(0x66FFFFFF),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              ArcobotColors.sunYellow,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: ArcobotSpacing.md),
+                        FilledButton(
+                          onPressed: () {},
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: ArcobotColors.skyBlue,
+                          ),
+                          child: const Text('Jugar ahora'),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: ArcobotSpacing.lg),
+                  Text('Mundos', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: ArcobotSpacing.sm),
+                  SizedBox(
+                    height: 168,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: const [
+                        _WorldCard(
+                          title: 'Letras',
+                          subtitle: '12 actividades',
+                          color: Color(0xFF55C271),
+                          icon: Icons.auto_stories_rounded,
+                        ),
+                        SizedBox(width: ArcobotSpacing.sm),
+                        _WorldCard(
+                          title: 'Numeros',
+                          subtitle: '8 actividades',
+                          color: Color(0xFF3A86FF),
+                          icon: Icons.calculate_rounded,
+                        ),
+                        SizedBox(width: ArcobotSpacing.sm),
+                        _WorldCard(
+                          title: 'Arte',
+                          subtitle: '6 actividades',
+                          color: Color(0xFFA78BFA),
+                          icon: Icons.palette_rounded,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: ArcobotSpacing.lg),
+                  Text('Actividades rapidas',
+                      style: theme.textTheme.titleLarge),
+                  const SizedBox(height: ArcobotSpacing.sm),
+                  Wrap(
+                    spacing: ArcobotSpacing.sm,
+                    runSpacing: ArcobotSpacing.sm,
+                    children: const [
+                      _ActivityCard(
+                        title: 'Emparejar letras',
+                        icon: Icons.abc_rounded,
+                        color: Color(0xFFE6F7F5),
+                      ),
+                      _ActivityCard(
+                        title: 'Contar figuras',
+                        icon: Icons.interests_rounded,
+                        color: Color(0xFFEAF2FF),
+                      ),
+                      _ActivityCard(
+                        title: 'Memoria visual',
+                        icon: Icons.grid_view_rounded,
+                        color: Color(0xFFF3ECFF),
+                      ),
+                      _ActivityCard(
+                        title: 'Colores y formas',
+                        icon: Icons.format_paint_rounded,
+                        color: Color(0xFFFFF4DF),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 0,
+        onDestinationSelected: (_) {},
+        height: 76,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.public_outlined),
+            selectedIcon: Icon(Icons.public_rounded),
+            label: 'Mundos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events_rounded),
+            label: 'Premios',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Perfil',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorldCard extends StatelessWidget {
+  const _WorldCard({
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 156,
+      padding: const EdgeInsets.all(ArcobotSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(ArcobotRadii.lg),
+        border: Border.all(color: ArcobotColors.softBorder),
+        boxShadow: ArcobotShadows.soft,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.15),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const Spacer(),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: ArcobotColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: ArcobotSpacing.xs),
+          Text(subtitle, style: theme.textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityCard extends StatelessWidget {
+  const _ActivityCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      child: Container(
+        padding: const EdgeInsets.all(ArcobotSpacing.md),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(ArcobotRadii.md),
+          border: Border.all(color: ArcobotColors.softBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: ArcobotColors.textPrimary, size: 22),
+            const SizedBox(width: ArcobotSpacing.sm),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.bodyLarge?.copyWith(fontSize: 16),
               ),
             ),
           ],
@@ -123,80 +330,23 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.title,
-    required this.value,
-    required this.icon,
+class _BackgroundBubble extends StatelessWidget {
+  const _BackgroundBubble({
+    required this.size,
     required this.color,
   });
 
-  final String title;
-  final String value;
-  final IconData icon;
+  final double size;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F7FA),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF475569),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionChip extends StatelessWidget {
-  const _QuickActionChip({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F7FA),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: const Color(0xFF0F172A)),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ],
+        shape: BoxShape.circle,
+        color: color,
       ),
     );
   }

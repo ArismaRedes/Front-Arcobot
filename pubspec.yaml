@@ -15,6 +15,7 @@ dependencies:
   logto_dart_sdk: ^3.0.0
   flutter_svg: ^2.0.10+1
   mobile_scanner: ^5.2.3
+  lottie: ^3.3.2
 
 dev_dependencies:
   flutter_lints: ^5.0.0
@@ -24,4 +25,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
+    - assets/images/auth/
+    - assets/images/brand/
+    - assets/images/dashboard/

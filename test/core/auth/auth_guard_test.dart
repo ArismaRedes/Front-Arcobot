@@ -6,6 +6,7 @@ void main() {
   const loginPath = '/login';
   const homePath = '/dashboard';
   const publicPaths = {loginPath, '/teacher-login'};
+  const guestOnlyPaths = {loginPath, '/teacher-login'};
 
   test('redirects unauthenticated users from private route to login', () {
     final redirect = authRedirect(
@@ -14,6 +15,7 @@ void main() {
       loginPath: loginPath,
       homePath: homePath,
       publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
     );
 
     expect(redirect, loginPath);
@@ -26,6 +28,7 @@ void main() {
       loginPath: loginPath,
       homePath: homePath,
       publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
     );
 
     expect(redirect, isNull);
@@ -38,6 +41,7 @@ void main() {
       loginPath: loginPath,
       homePath: homePath,
       publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
     );
 
     expect(redirect, homePath);
@@ -50,6 +54,7 @@ void main() {
       loginPath: loginPath,
       homePath: homePath,
       publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
     );
 
     expect(redirect, isNull);
@@ -62,6 +67,7 @@ void main() {
       loginPath: loginPath,
       homePath: homePath,
       publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
     );
 
     expect(redirect, loginPath);

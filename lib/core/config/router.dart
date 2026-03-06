@@ -1,17 +1,31 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/auth/auth_guard.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
+import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/teacher_login_screen.dart';
 import 'package:front_arcobot/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:front_arcobot/features/preload/presentation/preload_screen.dart';
 import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authControllerProvider);
+  final authStateNotifier = ValueNotifier<AuthState>(
+    ref.read(authControllerProvider),
+  );
 
-  return GoRouter(
-    initialLocation: LoginScreen.routePath,
+  ref.listen<AuthState>(authControllerProvider, (_, next) {
+    authStateNotifier.value = next;
+  });
+
+  final router = GoRouter(
+    initialLocation: PreloadScreen.routePath,
+    refreshListenable: authStateNotifier,
     routes: [
+      GoRoute(
+        path: PreloadScreen.routePath,
+        builder: (_, __) => const PreloadScreen(),
+      ),
       GoRoute(
         path: LoginScreen.routePath,
         builder: (_, __) => const LoginScreen(),
@@ -27,15 +41,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (_, state) {
       return authRedirect(
-        authState: authState,
+        authState: authStateNotifier.value,
         destination: state.matchedLocation,
         loginPath: LoginScreen.routePath,
         homePath: DashboardScreen.routePath,
         publicPaths: const {
+          PreloadScreen.routePath,
+          LoginScreen.routePath,
+          TeacherLoginScreen.routePath,
+        },
+        guestOnlyPaths: const {
           LoginScreen.routePath,
           TeacherLoginScreen.routePath,
         },
       );
     },
   );
+
+  ref.onDispose(() {
+    router.dispose();
+    authStateNotifier.dispose();
+  });
+
+  return router;
 });
