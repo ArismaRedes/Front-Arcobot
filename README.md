@@ -49,6 +49,7 @@ flutter run \
   --dart-define=LOGTO_REDIRECT_URI=io.arcobot.app://callback \
   --dart-define=LOGTO_POST_LOGOUT_REDIRECT_URI=io.arcobot.app://logout-callback \
   --dart-define=LOGTO_SCOPES="openid profile email offline_access" \
+  --dart-define=LOGTO_FACEBOOK_CONNECTOR_ID=TU_CONNECTOR_ID_INSTANCIA \
   --dart-define=LOGTO_FACEBOOK_CONNECTOR_TARGET=facebook
 ```
 
@@ -75,7 +76,8 @@ En el tenant de Logto:
 
 - habilita `Sign-in experience` con metodo por `Email + Password`.
 - habilita y configura el social connector de Facebook.
-- usa el target del connector en `LOGTO_FACEBOOK_CONNECTOR_TARGET` (por defecto `facebook`).
+- usa el id de instancia del connector en `LOGTO_FACEBOOK_CONNECTOR_ID`.
+- `LOGTO_FACEBOOK_CONNECTOR_TARGET` se conserva como referencia, pero el flujo usa el id.
 
 En la app:
 

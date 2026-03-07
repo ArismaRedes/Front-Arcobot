@@ -51,6 +51,16 @@ class Env {
     defaultValue: 'facebook',
   );
 
+  static const String logtoFacebookConnectorId = String.fromEnvironment(
+    'LOGTO_FACEBOOK_CONNECTOR_ID',
+    defaultValue: '',
+  );
+
+  static const String logtoFacebookCallbackUri = String.fromEnvironment(
+    'LOGTO_FACEBOOK_CALLBACK_URI',
+    defaultValue: '',
+  );
+
   static const String logtoOrganizationId = String.fromEnvironment(
     'LOGTO_ORGANIZATION_ID',
     defaultValue: '',
@@ -105,6 +115,17 @@ class Env {
     return configured;
   }
 
+  static String get logtoEffectiveFacebookCallbackUri {
+    final configured = logtoFacebookCallbackUri.trim();
+    if (configured.isEmpty) {
+      return logtoEffectiveRedirectUri;
+    }
+    if (kIsWeb && !_isWebCompatibleRedirectUri(configured)) {
+      return logtoEffectiveRedirectUri;
+    }
+    return configured;
+  }
+
   static void validate() {
     final missing = <String>[];
 
@@ -122,9 +143,7 @@ class Env {
     }
 
     if (missing.isNotEmpty) {
-      throw StateError(
-        'Missing required dart-defines: ${missing.join(', ')}',
-      );
+      throw StateError('Missing required dart-defines: ${missing.join(', ')}');
     }
   }
 }

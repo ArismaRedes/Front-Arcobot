@@ -2,9 +2,8 @@ import 'package:front_arcobot/core/auth/logto_service.dart';
 import 'package:front_arcobot/core/config/env.dart';
 
 class AuthRepository {
-  const AuthRepository({
-    required LogtoService logtoService,
-  }) : _logtoService = logtoService;
+  const AuthRepository({required LogtoService logtoService})
+    : _logtoService = logtoService;
 
   final LogtoService _logtoService;
 

@@ -27,10 +27,8 @@ class LogtoService {
 
   final logto_core.LogtoClient _client;
 
-  String get _normalizedEndpoint => Env.logtoEndpoint.trim().replaceAll(
-        RegExp(r'/$'),
-        '',
-      );
+  String get _normalizedEndpoint =>
+      Env.logtoEndpoint.trim().replaceAll(RegExp(r'/$'), '');
 
   Future<void> signIn() {
     return _client.signIn(
@@ -39,17 +37,51 @@ class LogtoService {
     );
   }
 
-  Future<void> signInWithSocial(String connectorTarget) {
+  Future<void> signInWithSocial(String connectorTarget) async {
     final target = connectorTarget.trim();
     if (target.isEmpty) {
       throw StateError('LOGTO_FACEBOOK_CONNECTOR_TARGET no puede estar vacio');
     }
 
-    return _client.signIn(
+    await _client.signIn(
       Env.logtoEffectiveRedirectUri,
       directSignIn: 'social:$target',
       extraParams: {'organization_id': Env.logtoOrganizationId},
     );
+
+    final idToken = await _client.idToken;
+    if (idToken == null || idToken.isEmpty) {
+      print('=== ID TOKEN CLAIMS ===');
+      print('No se encontro idToken despues del login social.');
+      print('======================');
+      return;
+    }
+
+    final parts = idToken.split('.');
+    if (parts.length < 2) {
+      print('=== ID TOKEN CLAIMS ===');
+      print('idToken invalido: formato JWT incompleto.');
+      print('======================');
+      return;
+    }
+
+    final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+    print('=== ID TOKEN CLAIMS ===');
+    print(payload);
+
+    try {
+      final claims = jsonDecode(payload);
+      if (claims is Map<String, dynamic>) {
+        print('organization_id: ${claims['organization_id']}');
+        print('organizations: ${claims['organizations']}');
+        print(
+          'urn:logto:claim:organizations: ${claims['urn:logto:claim:organizations']}',
+        );
+      }
+    } catch (_) {
+      // Keep payload print as source of truth even if JSON parsing fails.
+    }
+    print('======================');
   }
 
   Future<void> signInWithEmailAndPassword({
@@ -94,12 +126,7 @@ class LogtoService {
       ),
     );
 
-    await _request(
-      dio: dio,
-      cookies: cookies,
-      method: 'GET',
-      uri: signInUri,
-    );
+    await _request(dio: dio, cookies: cookies, method: 'GET', uri: signInUri);
 
     await _request(
       dio: dio,
@@ -114,12 +141,10 @@ class LogtoService {
       cookies: cookies,
       method: 'POST',
       uri: Uri.parse(
-          '$_normalizedEndpoint/api/experience/verification/password'),
+        '$_normalizedEndpoint/api/experience/verification/password',
+      ),
       data: {
-        'identifier': {
-          'type': 'email',
-          'value': normalizedEmail,
-        },
+        'identifier': {'type': 'email', 'value': normalizedEmail},
         'password': password,
       },
     );
@@ -210,8 +235,9 @@ class LogtoService {
       return refreshedToken;
     }
 
-    final accessToken =
-        await _client.getAccessToken(resource: Env.logtoAudience);
+    final accessToken = await _client.getAccessToken(
+      resource: Env.logtoAudience,
+    );
     return accessToken?.token;
   }
 
@@ -243,10 +269,7 @@ class LogtoService {
     final response = await dio.requestUri<dynamic>(
       uri,
       data: data,
-      options: Options(
-        method: method,
-        headers: headers,
-      ),
+      options: Options(method: method, headers: headers),
     );
 
     cookies.capture(response.headers.map['set-cookie']);
@@ -410,8 +433,10 @@ class LogtoService {
     const alphabet =
         'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random.secure();
-    return List.generate(32, (_) => alphabet[random.nextInt(alphabet.length)])
-        .join();
+    return List.generate(
+      32,
+      (_) => alphabet[random.nextInt(alphabet.length)],
+    ).join();
   }
 }
 
@@ -450,10 +475,7 @@ class _CookieStore {
 }
 
 class _Pkce {
-  _Pkce({
-    required this.codeVerifier,
-    required this.codeChallenge,
-  });
+  _Pkce({required this.codeVerifier, required this.codeChallenge});
 
   final String codeVerifier;
   final String codeChallenge;
@@ -470,9 +492,6 @@ class _Pkce {
     final challengeBytes = sha256.convert(ascii.encode(verifier)).bytes;
     final challenge = base64UrlEncode(challengeBytes).replaceAll('=', '');
 
-    return _Pkce(
-      codeVerifier: verifier,
-      codeChallenge: challenge,
-    );
+    return _Pkce(codeVerifier: verifier, codeChallenge: challenge);
   }
 }

@@ -25,16 +25,23 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:name=".AppAuthCallbackActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity="">
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true">
+            
             <intent-filter android:label="flutter_web_auth_2">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="io.arcobot.app" />
                 <data android:scheme="io.arcobot.app" android:host="callback" />
+            </intent-filter>
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="io.arcobot.app" android:host="logout-callback" />
             </intent-filter>
         </activity>

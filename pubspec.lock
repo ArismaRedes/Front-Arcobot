@@ -228,7 +228,7 @@ packages:
     source: sdk
     version: "0.0.0"
   flutter_web_auth_2:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: flutter_web_auth_2
       sha256: "3c14babeaa066c371f3a743f204dd0d348b7d42ffa6fae7a9847a521aff33696"
@@ -355,10 +355,9 @@ packages:
   logto_dart_sdk:
     dependency: "direct main"
     description:
-      name: logto_dart_sdk
-      sha256: "9be9eda4379cdefe0e8d7f91c4282b960c124eded3644f13ab90a39ed96c4050"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/logto_dart_sdk"
+      relative: true
+    source: path
     version: "3.0.0"
   lottie:
     dependency: "direct main"
