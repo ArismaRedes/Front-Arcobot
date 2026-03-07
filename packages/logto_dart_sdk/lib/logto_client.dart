@@ -236,8 +236,8 @@ class LogtoClient {
         callbackUrlScheme: redirectUriScheme,
         options: const FlutterWebAuth2Options(
           preferEphemeral: false,
-          // default (SINGLE_TOP | NEW_TASK) + CLEAR_TOP.
-          intentFlags: defaultIntentFlags | (1 << 26),
+          // default (SINGLE_TOP | NEW_TASK) + CLEAR_TOP + NO_HISTORY.
+          intentFlags: defaultIntentFlags | (1 << 26) | (1 << 30),
         ),
       );
 
