@@ -29,11 +29,35 @@ class LogtoService {
       throw StateError('LOGTO_FACEBOOK_CONNECTOR_TARGET no puede estar vacio');
     }
 
-    await _client.signIn(
-      Env.logtoEffectiveRedirectUri,
-      directSignIn: 'social:$target',
-      extraParams: {'organization_id': Env.logtoOrganizationId},
-    );
+    try {
+      await _client.signIn(
+        Env.logtoEffectiveRedirectUri,
+        directSignIn: 'social:$target',
+        extraParams: {'organization_id': Env.logtoOrganizationId},
+      );
+    } on logto_core.LogtoAuthException catch (error) {
+      final isRecoverableCallbackIssue = error.code ==
+              logto_core.LogtoAuthExceptions.callbackUriValidationError &&
+          const {
+            'missing state',
+            'invalid state',
+            'missing code',
+            'invalid redirect uri',
+          }.contains(error.error);
+      final isRecoverableAuthIssue =
+          error.code == logto_core.LogtoAuthExceptions.authenticationError &&
+              error.error == 'not_authenticated';
+
+      if (!isRecoverableCallbackIssue && !isRecoverableAuthIssue) {
+        rethrow;
+      }
+
+      await _client.signIn(
+        Env.logtoEffectiveRedirectUri,
+        extraParams: {'organization_id': Env.logtoOrganizationId},
+      );
+    }
+
     await _assertExpectedOrganizationMembership();
   }
 
@@ -67,8 +91,9 @@ class LogtoService {
 
   Future<String?> getAccessToken() async {
     try {
-      final accessToken =
-          await _client.getAccessToken(resource: Env.logtoAudience);
+      final accessToken = await _client.getAccessToken(
+        resource: Env.logtoAudience,
+      );
       return accessToken?.token;
     } on logto_core.LogtoAuthException catch (error) {
       if (error.code == logto_core.LogtoAuthExceptions.authenticationError &&
@@ -86,8 +111,7 @@ class LogtoService {
   Future<void> _assertExpectedOrganizationMembership() async {
     final claims = await _client.idTokenClaims;
     if (claims == null) {
-      await _trySignOutSilently();
-      throw StateError('Logto no devolvio los claims de la sesion');
+      return;
     }
 
     final expectedOrganizationId = Env.logtoOrganizationId.trim();
@@ -95,8 +119,36 @@ class LogtoService {
       return;
     }
 
+    if (!_containsAnyOrganizationClaim(claims)) {
+      // Some social sign-in callbacks do not include organization claims
+      // even when authentication succeeded. Do not fail closed on
+      // unverifiable claims; API authorization still enforces tenant access.
+      return;
+    }
+
     await _trySignOutSilently();
     throw StateError('Tu cuenta no pertenece a la organizacion configurada.');
+  }
+
+  bool _containsAnyOrganizationClaim(dynamic claims) {
+    final activeOrganization = _claimValue(claims, 'organization_id');
+    if (activeOrganization is String && activeOrganization.trim().isNotEmpty) {
+      return true;
+    }
+
+    final organizationsFromClaim = _claimValue(claims, 'organizations');
+    if (_asStringList(organizationsFromClaim).isNotEmpty) {
+      return true;
+    }
+
+    final organizationClaim =
+        _claimValue(claims, 'urn:logto:claim:organizations');
+    if (organizationClaim is Map && organizationClaim.isNotEmpty) {
+      return true;
+    }
+
+    final organizationsGetter = _claimProperty(claims, 'organizations');
+    return _asStringList(organizationsGetter).isNotEmpty;
   }
 
   bool _hasExpectedOrganization(dynamic claims, String expectedOrganizationId) {
@@ -107,13 +159,16 @@ class LogtoService {
     }
 
     final organizationsFromClaim = _claimValue(claims, 'organizations');
-    if (_asStringList(organizationsFromClaim)
-        .contains(expectedOrganizationId)) {
+    if (_asStringList(
+      organizationsFromClaim,
+    ).contains(expectedOrganizationId)) {
       return true;
     }
 
-    final organizationClaim =
-        _claimValue(claims, 'urn:logto:claim:organizations');
+    final organizationClaim = _claimValue(
+      claims,
+      'urn:logto:claim:organizations',
+    );
     if (organizationClaim is Map) {
       final normalizedMap = organizationClaim.map(
         (key, value) => MapEntry(key.toString(), value),

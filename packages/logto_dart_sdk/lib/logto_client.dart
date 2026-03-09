@@ -84,25 +84,33 @@ class LogtoClient {
       return _oidcConfig!;
     }
 
-    final discoveryUri =
-        utils.appendUriPath(config.endpoint, logto_core.discoveryPath);
+    final discoveryUri = utils.appendUriPath(
+      config.endpoint,
+      logto_core.discoveryPath,
+    );
     _oidcConfig = await logto_core.fetchOidcConfig(httpClient, discoveryUri);
 
     return _oidcConfig!;
   }
 
   // Get the access token by resource indicator or organizationId.
-  Future<AccessToken?> getAccessToken(
-      {String? resource, String? organizationId}) async {
+  Future<AccessToken?> getAccessToken({
+    String? resource,
+    String? organizationId,
+  }) async {
     final accessToken = await _tokenStorage.getAccessToken(
-        resource: resource, organizationId: organizationId);
+      resource: resource,
+      organizationId: organizationId,
+    );
 
     if (accessToken != null) {
       return accessToken;
     }
 
     final token = await _getAccessTokenByRefreshToken(
-        resource: resource, organizationId: organizationId);
+      resource: resource,
+      organizationId: organizationId,
+    );
 
     return token;
   }
@@ -110,10 +118,13 @@ class LogtoClient {
   // Get the access token for the organization by organizationId.
   Future<AccessToken?> getOrganizationToken(String organizationId) async {
     if (config.scopes == null ||
-        !config.scopes!
-            .contains(logto_core.LogtoUserScope.organizations.value)) {
-      throw LogtoAuthException(LogtoAuthExceptions.missingScopeError,
-          'organizations scope is not specified');
+        !config.scopes!.contains(
+          logto_core.LogtoUserScope.organizations.value,
+        )) {
+      throw LogtoAuthException(
+        LogtoAuthExceptions.missingScopeError,
+        'organizations scope is not specified',
+      );
     }
 
     return await getAccessToken(organizationId: organizationId);
@@ -121,13 +132,17 @@ class LogtoClient {
 
   // Fetch the access token by refresh token.
   // No need to specify the scopes for the resource, all the related scopes in the refresh token's grant list will be returned.
-  Future<AccessToken?> _getAccessTokenByRefreshToken(
-      {String? resource, String? organizationId}) async {
+  Future<AccessToken?> _getAccessTokenByRefreshToken({
+    String? resource,
+    String? organizationId,
+  }) async {
     final refreshToken = await _tokenStorage.refreshToken;
 
     if (refreshToken == null) {
       throw LogtoAuthException(
-          LogtoAuthExceptions.authenticationError, 'not_authenticated');
+        LogtoAuthExceptions.authenticationError,
+        'not_authenticated',
+      );
     }
 
     final httpClient = _httpClient ?? http.Client();
@@ -136,20 +151,23 @@ class LogtoClient {
       final oidcConfig = await _getOidcConfig(httpClient);
 
       final response = await logto_core.fetchTokenByRefreshToken(
-          httpClient: httpClient,
-          tokenEndPoint: oidcConfig.tokenEndpoint,
-          clientId: config.appId,
-          refreshToken: refreshToken,
-          resource: resource,
-          organizationId: organizationId);
+        httpClient: httpClient,
+        tokenEndPoint: oidcConfig.tokenEndpoint,
+        clientId: config.appId,
+        refreshToken: refreshToken,
+        resource: resource,
+        organizationId: organizationId,
+      );
 
       final scopes = response.scope.split(' ');
 
-      await _tokenStorage.setAccessToken(response.accessToken,
-          expiresIn: response.expiresIn,
-          resource: resource,
-          organizationId: organizationId,
-          scopes: scopes);
+      await _tokenStorage.setAccessToken(
+        response.accessToken,
+        expiresIn: response.expiresIn,
+        resource: resource,
+        organizationId: organizationId,
+        scopes: scopes,
+      );
 
       // renew refresh token
       if (response.refreshToken != null) {
@@ -164,28 +182,38 @@ class LogtoClient {
       }
 
       return await _tokenStorage.getAccessToken(
-          resource: resource, organizationId: organizationId);
+        resource: resource,
+        organizationId: organizationId,
+      );
     } finally {
       if (_httpClient == null) httpClient.close();
     }
   }
 
   Future<void> _verifyIdToken(
-      IdToken idToken, OidcProviderConfig oidcConfig) async {
+    IdToken idToken,
+    OidcProviderConfig oidcConfig,
+  ) async {
     final keyStore = JsonWebKeyStore()
       ..addKeySetUrl(Uri.parse(oidcConfig.jwksUri));
 
     if (!await idToken.verify(keyStore)) {
       throw LogtoAuthException(
-          LogtoAuthExceptions.idTokenValidationError, 'invalid jws signature');
+        LogtoAuthExceptions.idTokenValidationError,
+        'invalid jws signature',
+      );
     }
 
-    final violations = idToken.claims
-        .validate(issuer: Uri.parse(oidcConfig.issuer), clientId: config.appId);
+    final violations = idToken.claims.validate(
+      issuer: Uri.parse(oidcConfig.issuer),
+      clientId: config.appId,
+    );
 
     if (violations.isNotEmpty) {
       throw LogtoAuthException(
-          LogtoAuthExceptions.idTokenValidationError, '$violations');
+        LogtoAuthExceptions.idTokenValidationError,
+        '$violations',
+      );
     }
   }
 
@@ -201,7 +229,9 @@ class LogtoClient {
   }) async {
     if (_loading) {
       throw LogtoAuthException(
-          LogtoAuthExceptions.isLoadingError, 'Already signing in...');
+        LogtoAuthExceptions.isLoadingError,
+        'Already signing in...',
+      );
     }
 
     final httpClient = _httpClient ?? http.Client();
@@ -236,8 +266,13 @@ class LogtoClient {
         callbackUrlScheme: redirectUriScheme,
         options: const FlutterWebAuth2Options(
           preferEphemeral: false,
-          // default (SINGLE_TOP | NEW_TASK) + CLEAR_TOP + NO_HISTORY.
-          intentFlags: defaultIntentFlags | (1 << 26) | (1 << 30),
+          // Prioritize stable custom-tab providers to reduce OEM quirks.
+          customTabsPackageOrder: [
+            'com.android.chrome',
+            'com.chrome.beta',
+            'com.chrome.dev',
+            'com.microsoft.emmx',
+          ],
         ),
       );
 
@@ -250,7 +285,10 @@ class LogtoClient {
 
   // Handle the sign-in callback and complete the token exchange process.
   Future _handleSignInCallback(
-      String callbackUri, String redirectUri, http.Client httpClient) async {
+    String callbackUri,
+    String redirectUri,
+    http.Client httpClient,
+  ) async {
     final code = logto_core.verifyAndParseCodeFromCallbackUri(
       callbackUri,
       redirectUri,
@@ -273,11 +311,12 @@ class LogtoClient {
     await _verifyIdToken(idToken, oidcConfig);
 
     await _tokenStorage.save(
-        idToken: idToken,
-        accessToken: tokenResponse.accessToken,
-        refreshToken: tokenResponse.refreshToken,
-        expiresIn: tokenResponse.expiresIn,
-        scopes: tokenResponse.scope.split(' '));
+      idToken: idToken,
+      accessToken: tokenResponse.accessToken,
+      refreshToken: tokenResponse.refreshToken,
+      expiresIn: tokenResponse.expiresIn,
+      scopes: tokenResponse.scope.split(' '),
+    );
   }
 
   // Sign out the user.
@@ -289,7 +328,9 @@ class LogtoClient {
 
     if (idToken == null) {
       throw LogtoAuthException(
-          LogtoAuthExceptions.authenticationError, 'not authenticated');
+        LogtoAuthExceptions.authenticationError,
+        'not authenticated',
+      );
     }
 
     try {
@@ -318,17 +359,20 @@ class LogtoClient {
       // For Android and Web, we need to redirect to the end session endpoint to clear the session manually.
       if (kIsWeb || !Platform.isIOS) {
         final signOutUri = logto_core.generateSignOutUri(
-            endSessionEndpoint: oidcConfig.endSessionEndpoint,
-            clientId: config.appId,
-            postLogoutRedirectUri: Uri.parse(redirectUri));
+          endSessionEndpoint: oidcConfig.endSessionEndpoint,
+          clientId: config.appId,
+          postLogoutRedirectUri: Uri.parse(redirectUri),
+        );
         final redirectUriScheme = Uri.parse(redirectUri).scheme;
 
         // Execute the sign-out flow asynchronously, this should not block the main app to render the UI.
         await FlutterWebAuth2.authenticate(
-            url: signOutUri.toString(),
-            callbackUrlScheme: redirectUriScheme,
-            options: const FlutterWebAuth2Options(
-                intentFlags: ephemeralIntentFlags));
+          url: signOutUri.toString(),
+          callbackUrlScheme: redirectUriScheme,
+          options: const FlutterWebAuth2Options(
+            intentFlags: ephemeralIntentFlags,
+          ),
+        );
       }
     } finally {
       if (_httpClient == null) {
@@ -348,7 +392,9 @@ class LogtoClient {
 
       if (accessToken == null) {
         throw LogtoAuthException(
-            LogtoAuthExceptions.authenticationError, 'not authenticated');
+          LogtoAuthExceptions.authenticationError,
+          'not authenticated',
+        );
       }
 
       final userInfoResponse = await logto_core.fetchUserInfo(

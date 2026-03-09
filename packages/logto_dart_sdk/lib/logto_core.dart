@@ -259,7 +259,8 @@ String verifyAndParseCodeFromCallbackUri(
         LogtoAuthExceptions.callbackUriValidationError, 'invalid redirect uri');
   }
 
-  var queryParams = Uri.parse(callbackUri).queryParameters;
+  final parsedUri = Uri.parse(callbackUri);
+  final queryParams = _extractCallbackParams(parsedUri);
 
   if (queryParams['error'] != null) {
     throw LogtoAuthException(LogtoAuthExceptions.callbackUriValidationError,
@@ -282,6 +283,40 @@ String verifyAndParseCodeFromCallbackUri(
   }
 
   return queryParams['code']!;
+}
+
+Map<String, String> _extractCallbackParams(Uri callbackUri) {
+  final params = Map<String, String>.from(callbackUri.queryParameters);
+  final rawFragment = callbackUri.fragment.trim();
+  if (rawFragment.isEmpty) {
+    return params;
+  }
+
+  var fragment = rawFragment;
+  if (fragment.startsWith('/?')) {
+    fragment = fragment.substring(2);
+  } else if (fragment.startsWith('?')) {
+    fragment = fragment.substring(1);
+  }
+
+  if (fragment.contains('?')) {
+    fragment = fragment.substring(fragment.indexOf('?') + 1);
+  }
+
+  if (fragment.isEmpty || !fragment.contains('=')) {
+    return params;
+  }
+
+  try {
+    final fragmentParams = Uri.splitQueryString(fragment);
+    // Prefer query parameters when duplicated, but fill missing values from fragment.
+    for (final entry in fragmentParams.entries) {
+      params.putIfAbsent(entry.key, () => entry.value);
+    }
+  } catch (_) {
+    // Ignore malformed fragments and keep query parameters only.
+  }
+  return params;
 }
 
 /**
