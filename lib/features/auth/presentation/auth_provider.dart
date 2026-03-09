@@ -22,7 +22,7 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
 
 class AuthController extends StateNotifier<AuthState> {
   AuthController(this._repository, {bool autoRestore = true})
-    : super(const AuthState.unknown()) {
+      : super(const AuthState.unknown()) {
     if (autoRestore) {
       unawaited(restoreSession());
     }
@@ -78,6 +78,11 @@ class AuthController extends StateNotifier<AuthState> {
       return 'No se pudo completar el inicio de sesion. Intenta nuevamente.';
     }
 
+    if (normalized.contains('organizacion configurada') ||
+        normalized.contains('organization')) {
+      return 'Tu cuenta no pertenece a la organizacion autorizada.';
+    }
+
     if (flow == _AuthFlow.signInWithFacebook) {
       return 'No se pudo iniciar con Facebook. Intenta nuevamente.';
     }
@@ -125,20 +130,14 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signInWithEmail(String email) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
 
     try {
-      await _repository.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      await _repository.signInWithEmail(email);
       state = const AuthState(status: AuthStatus.authenticated);
     } catch (error) {
-      _setFailure(error, flow: _AuthFlow.signInWithEmailAndPassword);
+      _setFailure(error, flow: _AuthFlow.signInWithEmail);
     }
   }
 
@@ -165,6 +164,6 @@ enum _AuthFlow {
   restoreSession,
   signIn,
   signInWithFacebook,
-  signInWithEmailAndPassword,
+  signInWithEmail,
   signOut,
 }

@@ -17,26 +17,21 @@ class TeacherLoginScreen extends ConsumerStatefulWidget {
 
 class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
   late final TextEditingController _emailController;
-  late final TextEditingController _passwordController;
-  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
-    _passwordController = TextEditingController();
   }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitEmailPassword() async {
+  Future<void> _submitEmail() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text;
 
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -44,17 +39,7 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
       );
       return;
     }
-    if (password.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa tu contrasena')),
-      );
-      return;
-    }
-
-    await ref.read(authControllerProvider.notifier).signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
+    await ref.read(authControllerProvider.notifier).signInWithEmail(email);
   }
 
   @override
@@ -129,7 +114,7 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                           ),
                           const SizedBox(height: ArcobotSpacing.xs),
                           Text(
-                            'Inicia con correo y contrasena o Facebook',
+                            'Inicia con correo o Facebook',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyLarge?.copyWith(
                               color: ArcobotColors.textSecondary,
@@ -161,42 +146,24 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                             controller: _emailController,
                             enabled: !loading,
                             keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
+                            textInputAction: TextInputAction.done,
                             decoration: const InputDecoration(
                               labelText: 'Correo',
                               prefixIcon: Icon(Icons.mail_outline_rounded),
                             ),
+                            onSubmitted: (_) => _submitEmail(),
                           ),
                           const SizedBox(height: ArcobotSpacing.sm),
-                          TextField(
-                            controller: _passwordController,
-                            enabled: !loading,
-                            obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _submitEmailPassword(),
-                            decoration: InputDecoration(
-                              labelText: 'Contrasena',
-                              prefixIcon:
-                                  const Icon(Icons.lock_outline_rounded),
-                              suffixIcon: IconButton(
-                                onPressed: loading
-                                    ? null
-                                    : () {
-                                        setState(() {
-                                          _obscurePassword = !_obscurePassword;
-                                        });
-                                      },
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off_rounded
-                                      : Icons.visibility_rounded,
-                                ),
-                              ),
+                          Text(
+                            'La contrasena se ingresara de forma segura en Logto.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: ArcobotColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: ArcobotSpacing.md),
                           FilledButton.icon(
-                            onPressed: loading ? null : _submitEmailPassword,
+                            onPressed: loading ? null : _submitEmail,
                             icon: loading
                                 ? const SizedBox(
                                     width: 18,
@@ -206,9 +173,11 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.lock_open_rounded),
+                                : const Icon(Icons.login_rounded),
                             label: Text(
-                              loading ? 'Conectando...' : 'Entrar con correo',
+                              loading
+                                  ? 'Conectando...'
+                                  : 'Continuar con correo',
                             ),
                           ),
                           const SizedBox(height: ArcobotSpacing.sm),

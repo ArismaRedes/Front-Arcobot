@@ -3,7 +3,7 @@ import 'package:front_arcobot/core/config/env.dart';
 
 class AuthRepository {
   const AuthRepository({required LogtoService logtoService})
-    : _logtoService = logtoService;
+      : _logtoService = logtoService;
 
   final LogtoService _logtoService;
 
@@ -15,14 +15,8 @@ class AuthRepository {
     await _logtoService.signInWithSocial(Env.logtoFacebookConnectorTarget);
   }
 
-  Future<void> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    await _logtoService.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+  Future<void> signInWithEmail(String email) async {
+    await _logtoService.signInWithEmail(email);
   }
 
   Future<void> signOut() async {

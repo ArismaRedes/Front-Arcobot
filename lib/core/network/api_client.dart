@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/config/env.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
@@ -24,14 +25,10 @@ final apiClientProvider = Provider<Dio>((ref) {
         String? accessToken;
         try {
           accessToken = await authRepository.getAccessToken();
-        } catch (_) {
-          if (!invalidationInProgress) {
-            invalidationInProgress = true;
-            authController.invalidateSession(
-              errorMessage: 'Sesion expirada. Inicia sesion nuevamente.',
-            );
-            invalidationInProgress = false;
-          }
+        } catch (error) {
+          // Token refresh can fail for temporary network issues; defer session
+          // invalidation to an actual 401 response from the protected API.
+          debugPrint('No se pudo obtener token de acceso: $error');
         }
 
         if (accessToken != null && accessToken.isNotEmpty) {

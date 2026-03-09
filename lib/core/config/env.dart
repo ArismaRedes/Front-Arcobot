@@ -51,16 +51,6 @@ class Env {
     defaultValue: 'facebook',
   );
 
-  static const String logtoFacebookConnectorId = String.fromEnvironment(
-    'LOGTO_FACEBOOK_CONNECTOR_ID',
-    defaultValue: '',
-  );
-
-  static const String logtoFacebookCallbackUri = String.fromEnvironment(
-    'LOGTO_FACEBOOK_CALLBACK_URI',
-    defaultValue: '',
-  );
-
   static const String logtoOrganizationId = String.fromEnvironment(
     'LOGTO_ORGANIZATION_ID',
     defaultValue: '',
@@ -73,24 +63,43 @@ class Env {
       .toList(growable: false);
 
   static String get _defaultRedirectUri {
-    return kIsWeb
-        ? '${Uri.base.origin}/callback.html'
-        : 'io.arcobot.app://callback';
+    if (kIsWeb) {
+      return _resolveWebCallbackUri();
+    }
+    return 'io.arcobot.app://callback';
   }
 
   static String get _defaultPostLogoutRedirectUri {
-    return kIsWeb
-        ? '${Uri.base.origin}/callback.html'
-        : 'io.arcobot.app://logout-callback';
+    if (kIsWeb) {
+      return _resolveWebCallbackUri();
+    }
+    return 'io.arcobot.app://logout-callback';
+  }
+
+  static String _resolveWebCallbackUri() {
+    final callbackUri = Uri.base.resolve('callback.html').replace(
+          queryParameters: null,
+          fragment: null,
+        );
+    return callbackUri.toString();
   }
 
   static bool _isWebCompatibleRedirectUri(String value) {
     final parsed = Uri.tryParse(value);
-    if (parsed == null) {
+    if (parsed == null || !parsed.hasScheme) {
       return false;
     }
     final scheme = parsed.scheme.toLowerCase();
     return scheme == 'http' || scheme == 'https';
+  }
+
+  static bool _isNativeCompatibleRedirectUri(String value) {
+    final parsed = Uri.tryParse(value);
+    if (parsed == null || !parsed.hasScheme) {
+      return false;
+    }
+    final scheme = parsed.scheme.toLowerCase();
+    return scheme.isNotEmpty && scheme != 'http' && scheme != 'https';
   }
 
   static String get logtoEffectiveRedirectUri {
@@ -115,17 +124,6 @@ class Env {
     return configured;
   }
 
-  static String get logtoEffectiveFacebookCallbackUri {
-    final configured = logtoFacebookCallbackUri.trim();
-    if (configured.isEmpty) {
-      return logtoEffectiveRedirectUri;
-    }
-    if (kIsWeb && !_isWebCompatibleRedirectUri(configured)) {
-      return logtoEffectiveRedirectUri;
-    }
-    return configured;
-  }
-
   static void validate() {
     final missing = <String>[];
 
@@ -144,6 +142,48 @@ class Env {
 
     if (missing.isNotEmpty) {
       throw StateError('Missing required dart-defines: ${missing.join(', ')}');
+    }
+
+    final endpointUri = Uri.tryParse(logtoEndpoint);
+    if (endpointUri == null ||
+        !endpointUri.hasScheme ||
+        !endpointUri.hasAuthority) {
+      throw StateError('LOGTO_ENDPOINT debe ser una URL absoluta valida.');
+    }
+
+    final audienceUri = Uri.tryParse(logtoAudience);
+    if (audienceUri == null || !audienceUri.hasScheme) {
+      throw StateError('LOGTO_AUDIENCE debe ser un identificador URI valido.');
+    }
+
+    final redirectUri = logtoEffectiveRedirectUri;
+    final postLogoutRedirectUri = logtoEffectivePostLogoutRedirectUri;
+    if (kIsWeb) {
+      if (!_isWebCompatibleRedirectUri(redirectUri)) {
+        throw StateError(
+          'LOGTO_REDIRECT_URI debe usar http/https en Web: $redirectUri',
+        );
+      }
+      if (!_isWebCompatibleRedirectUri(postLogoutRedirectUri)) {
+        throw StateError(
+          'LOGTO_POST_LOGOUT_REDIRECT_URI debe usar http/https en Web: '
+          '$postLogoutRedirectUri',
+        );
+      }
+      return;
+    }
+
+    if (!_isNativeCompatibleRedirectUri(redirectUri)) {
+      throw StateError(
+        'LOGTO_REDIRECT_URI debe usar esquema personalizado en mobile: '
+        '$redirectUri',
+      );
+    }
+    if (!_isNativeCompatibleRedirectUri(postLogoutRedirectUri)) {
+      throw StateError(
+        'LOGTO_POST_LOGOUT_REDIRECT_URI debe usar esquema personalizado en '
+        'mobile: $postLogoutRedirectUri',
+      );
     }
   }
 }
