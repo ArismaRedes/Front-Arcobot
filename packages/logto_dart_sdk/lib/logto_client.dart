@@ -266,6 +266,8 @@ class LogtoClient {
         callbackUrlScheme: redirectUriScheme,
         options: const FlutterWebAuth2Options(
           preferEphemeral: false,
+          // Keep the auth tab transient and bring existing task to front.
+          intentFlags: defaultIntentFlags | (1 << 26) | (1 << 30),
           // Prioritize stable custom-tab providers to reduce OEM quirks.
           customTabsPackageOrder: [
             'com.android.chrome',
