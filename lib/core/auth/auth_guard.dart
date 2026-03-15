@@ -5,11 +5,15 @@ String? authRedirect({
   required String destination,
   required String loginPath,
   required String homePath,
+  required String superadminPath,
   required Set<String> publicPaths,
   required Set<String> guestOnlyPaths,
 }) {
   final isAtPublicPath = publicPaths.contains(destination);
   final isAtGuestOnlyPath = guestOnlyPaths.contains(destination);
+  final isAtSuperadminPath = destination == superadminPath;
+  final effectiveHomePath =
+      authState.isSuperadmin ? superadminPath : homePath;
 
   switch (authState.status) {
     case AuthStatus.unknown:
@@ -19,6 +23,12 @@ String? authRedirect({
     case AuthStatus.failure:
       return isAtPublicPath ? null : loginPath;
     case AuthStatus.authenticated:
-      return isAtGuestOnlyPath ? homePath : null;
+      if (authState.isSuperadmin && destination == homePath) {
+        return superadminPath;
+      }
+      if (!authState.isSuperadmin && isAtSuperadminPath) {
+        return homePath;
+      }
+      return isAtGuestOnlyPath ? effectiveHomePath : null;
   }
 }

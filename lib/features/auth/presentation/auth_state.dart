@@ -20,6 +20,8 @@ class AuthState {
   final List<String> roles;
 
   String? get primaryRole => roles.isEmpty ? null : roles.first;
+  bool get isSuperadmin =>
+      roles.any((role) => role.trim().toLowerCase() == 'superadmin');
 
   AuthState copyWith({
     AuthStatus? status,

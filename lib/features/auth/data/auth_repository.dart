@@ -11,8 +11,6 @@ class BackendSession {
 
   final String subject;
   final List<String> roles;
-
-  String? get primaryRole => roles.isEmpty ? null : roles.first;
 }
 
 class AuthRepository {

@@ -5,6 +5,7 @@ import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 void main() {
   const loginPath = '/login';
   const homePath = '/dashboard';
+  const superadminPath = '/superadmin';
   const publicPaths = {loginPath, '/teacher-login'};
   const guestOnlyPaths = {loginPath, '/teacher-login'};
 
@@ -14,6 +15,7 @@ void main() {
       destination: '/dashboard',
       loginPath: loginPath,
       homePath: homePath,
+      superadminPath: superadminPath,
       publicPaths: publicPaths,
       guestOnlyPaths: guestOnlyPaths,
     );
@@ -27,6 +29,7 @@ void main() {
       destination: loginPath,
       loginPath: loginPath,
       homePath: homePath,
+      superadminPath: superadminPath,
       publicPaths: publicPaths,
       guestOnlyPaths: guestOnlyPaths,
     );
@@ -40,6 +43,7 @@ void main() {
       destination: loginPath,
       loginPath: loginPath,
       homePath: homePath,
+      superadminPath: superadminPath,
       publicPaths: publicPaths,
       guestOnlyPaths: guestOnlyPaths,
     );
@@ -53,6 +57,7 @@ void main() {
       destination: homePath,
       loginPath: loginPath,
       homePath: homePath,
+      superadminPath: superadminPath,
       publicPaths: publicPaths,
       guestOnlyPaths: guestOnlyPaths,
     );
@@ -66,10 +71,45 @@ void main() {
       destination: homePath,
       loginPath: loginPath,
       homePath: homePath,
+      superadminPath: superadminPath,
       publicPaths: publicPaths,
       guestOnlyPaths: guestOnlyPaths,
     );
 
     expect(redirect, loginPath);
+  });
+
+  test('redirects superadmin users from guest route to superadmin home', () {
+    final redirect = authRedirect(
+      authState: const AuthState(
+        status: AuthStatus.authenticated,
+        roles: ['superadmin'],
+      ),
+      destination: loginPath,
+      loginPath: loginPath,
+      homePath: homePath,
+      superadminPath: superadminPath,
+      publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
+    );
+
+    expect(redirect, superadminPath);
+  });
+
+  test('blocks non-superadmin users from superadmin route', () {
+    final redirect = authRedirect(
+      authState: const AuthState(
+        status: AuthStatus.authenticated,
+        roles: ['teacher'],
+      ),
+      destination: superadminPath,
+      loginPath: loginPath,
+      homePath: homePath,
+      superadminPath: superadminPath,
+      publicPaths: publicPaths,
+      guestOnlyPaths: guestOnlyPaths,
+    );
+
+    expect(redirect, homePath);
   });
 }

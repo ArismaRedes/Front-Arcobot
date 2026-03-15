@@ -172,11 +172,7 @@ class AuthController extends StateNotifier<AuthState> {
         return;
       }
 
-      final backendSession = await _repository.verifyBackendSession();
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        roles: backendSession.roles,
-      );
+      await _setAuthenticatedFromBackend();
     } on AppAuthException catch (error) {
       debugPrint('No se pudo restaurar la sesion: $error');
       await _clearSessionSilently();
@@ -188,75 +184,56 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> signIn() async {
+  Future<void> _setAuthenticatedFromBackend() async {
+    final backendSession = await _repository.verifyBackendSession();
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      roles: backendSession.roles,
+    );
+  }
+
+  Future<void> _runInteractiveAuth(
+    Future<void> Function() action, {
+    required _AuthFlow flow,
+  }) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
 
     try {
-      await _repository.signIn();
-      final backendSession = await _repository.verifyBackendSession();
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        roles: backendSession.roles,
-      );
+      await action();
+      await _setAuthenticatedFromBackend();
     } on AppAuthException catch (error) {
-      await _handleControlledError(error, flow: _AuthFlow.signIn);
+      await _handleControlledError(error, flow: flow);
     } catch (error) {
-      _setFailure(error, flow: _AuthFlow.signIn);
+      _setFailure(error, flow: flow);
     }
+  }
+
+  Future<void> signIn() async {
+    await _runInteractiveAuth(
+      _repository.signIn,
+      flow: _AuthFlow.signIn,
+    );
   }
 
   Future<void> signInWithFacebook() async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-
-    try {
-      await _repository.signInWithFacebook();
-      final backendSession = await _repository.verifyBackendSession();
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        roles: backendSession.roles,
-      );
-    } on AppAuthException catch (error) {
-      await _handleControlledError(
-        error,
-        flow: _AuthFlow.signInWithFacebook,
-      );
-    } catch (error) {
-      _setFailure(error, flow: _AuthFlow.signInWithFacebook);
-    }
+    await _runInteractiveAuth(
+      _repository.signInWithFacebook,
+      flow: _AuthFlow.signInWithFacebook,
+    );
   }
 
   Future<void> signInWithGoogle() async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-
-    try {
-      await _repository.signInWithGoogle();
-      final backendSession = await _repository.verifyBackendSession();
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        roles: backendSession.roles,
-      );
-    } on AppAuthException catch (error) {
-      await _handleControlledError(error, flow: _AuthFlow.signInWithGoogle);
-    } catch (error) {
-      _setFailure(error, flow: _AuthFlow.signInWithGoogle);
-    }
+    await _runInteractiveAuth(
+      _repository.signInWithGoogle,
+      flow: _AuthFlow.signInWithGoogle,
+    );
   }
 
   Future<void> signInWithEmail(String email) async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-
-    try {
-      await _repository.signInWithEmail(email);
-      final backendSession = await _repository.verifyBackendSession();
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        roles: backendSession.roles,
-      );
-    } on AppAuthException catch (error) {
-      await _handleControlledError(error, flow: _AuthFlow.signInWithEmail);
-    } catch (error) {
-      _setFailure(error, flow: _AuthFlow.signInWithEmail);
-    }
+    await _runInteractiveAuth(
+      () => _repository.signInWithEmail(email),
+      flow: _AuthFlow.signInWithEmail,
+    );
   }
 
   Future<void> signOut() async {

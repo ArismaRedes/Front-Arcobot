@@ -112,10 +112,6 @@ class LogtoService {
     }
   }
 
-  Future<String?> getIdToken() {
-    return _client.idToken;
-  }
-
   String get _redirectUri => Env.logtoEffectiveRedirectUri;
 
   String get _postLogoutRedirectUri => Env.logtoEffectivePostLogoutRedirectUri;

@@ -7,6 +7,7 @@ import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/teacher_login_screen.dart';
 import 'package:front_arcobot/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:front_arcobot/features/preload/presentation/preload_screen.dart';
+import 'package:front_arcobot/features/superadmin/presentation/superadmin_screen.dart';
 import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -38,6 +39,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: DashboardScreen.routePath,
         builder: (_, __) => const DashboardScreen(),
       ),
+      GoRoute(
+        path: SuperadminScreen.routePath,
+        builder: (_, __) => const SuperadminScreen(),
+      ),
     ],
     redirect: (_, state) {
       return authRedirect(
@@ -45,6 +50,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         destination: state.matchedLocation,
         loginPath: LoginScreen.routePath,
         homePath: DashboardScreen.routePath,
+        superadminPath: SuperadminScreen.routePath,
         publicPaths: const {
           PreloadScreen.routePath,
           LoginScreen.routePath,

@@ -6,6 +6,7 @@ import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
 import 'package:front_arcobot/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:front_arcobot/features/superadmin/presentation/superadmin_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 
@@ -104,7 +105,11 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
 
     _navigated = true;
     if (authState.status == AuthStatus.authenticated) {
-      context.go(DashboardScreen.routePath);
+      context.go(
+        authState.isSuperadmin
+            ? SuperadminScreen.routePath
+            : DashboardScreen.routePath,
+      );
       return;
     }
     context.go(LoginScreen.routePath);
