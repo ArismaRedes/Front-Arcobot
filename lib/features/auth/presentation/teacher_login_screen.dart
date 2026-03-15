@@ -114,7 +114,7 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                           ),
                           const SizedBox(height: ArcobotSpacing.xs),
                           Text(
-                            'Inicia con correo o Facebook',
+                            'Inicia con correo, Google o Facebook',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyLarge?.copyWith(
                               color: ArcobotColors.textSecondary,
@@ -179,6 +179,16 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                                   ? 'Conectando...'
                                   : 'Continuar con correo',
                             ),
+                          ),
+                          const SizedBox(height: ArcobotSpacing.sm),
+                          OutlinedButton.icon(
+                            onPressed: loading
+                                ? null
+                                : () => ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithGoogle(),
+                            icon: const Icon(Icons.g_mobiledata_rounded),
+                            label: const Text('Continuar con Google'),
                           ),
                           const SizedBox(height: ArcobotSpacing.sm),
                           OutlinedButton.icon(

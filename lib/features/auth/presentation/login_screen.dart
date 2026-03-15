@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
+import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/class_code_scanner_screen.dart';
 import 'package:front_arcobot/features/auth/presentation/teacher_login_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -64,6 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -123,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     padding: const EdgeInsets.only(top: 72, bottom: 20),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 560),
-                      child: _buildFormPanel(theme),
+                      child: _buildFormPanel(theme, authState.errorMessage),
                     ),
                   ),
                 ),
@@ -135,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildFormPanel(ThemeData theme) {
+  Widget _buildFormPanel(ThemeData theme, String? errorMessage) {
     return Container(
       padding: const EdgeInsets.all(ArcobotSpacing.xl),
       decoration: BoxDecoration(
@@ -163,6 +165,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               color: ArcobotColors.textSecondary,
             ),
           ),
+          if (errorMessage != null) ...[
+            const SizedBox(height: ArcobotSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEEEB),
+                borderRadius: BorderRadius.circular(ArcobotRadii.md),
+                border: Border.all(color: const Color(0xFFFFCDC6)),
+              ),
+              child: Text(
+                errorMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFC2410C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: ArcobotSpacing.lg),
           const _ArcobotGuideBubble(
             message: 'Hola, escribe el codigo de tu clase',

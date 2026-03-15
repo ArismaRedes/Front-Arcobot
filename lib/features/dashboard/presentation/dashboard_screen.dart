@@ -11,6 +11,8 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final authState = ref.watch(authControllerProvider);
+    final roleLabel = _humanizeRole(authState.primaryRole);
 
     return Scaffold(
       body: Container(
@@ -72,6 +74,14 @@ class DashboardScreen extends ConsumerWidget {
                               'Arcobot te guiará hoy',
                               style: theme.textTheme.bodyMedium,
                             ),
+                            if (roleLabel != null)
+                              Text(
+                                'Rol: $roleLabel',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: ArcobotColors.textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -235,6 +245,26 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+String? _humanizeRole(String? role) {
+  if (role == null || role.trim().isEmpty) {
+    return null;
+  }
+
+  switch (role.trim().toLowerCase()) {
+    case 'superadmin':
+      return 'Superadmin';
+    case 'admin':
+      return 'Admin';
+    case 'teacher':
+    case 'docente':
+      return 'Docente';
+    case 'member':
+      return 'Miembro';
+    default:
+      return role.trim();
   }
 }
 

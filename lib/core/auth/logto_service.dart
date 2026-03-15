@@ -1,80 +1,72 @@
 import 'package:logto_dart_sdk/logto_dart_sdk.dart' as logto_core;
 
+import 'package:front_arcobot/core/auth/auth_exceptions.dart';
+import 'package:front_arcobot/core/auth/auth_runtime_config.dart';
 import 'package:front_arcobot/core/config/env.dart';
 
 class LogtoService {
-  LogtoService()
-      : _client = logto_core.LogtoClient(
+  LogtoService({required AuthRuntimeConfig config})
+      : _config = config,
+        _client = logto_core.LogtoClient(
           config: logto_core.LogtoConfig(
-            endpoint: Env.logtoEndpoint,
-            appId: Env.logtoEffectiveAppId,
-            resources: [Env.logtoAudience],
-            scopes: Env.logtoScopes,
+            endpoint: config.endpoint,
+            appId: config.appId,
+            resources: [config.audience],
+            scopes: config.scopes,
           ),
         );
 
+  final AuthRuntimeConfig _config;
   final logto_core.LogtoClient _client;
 
   Future<void> signIn() async {
-    await _client.signIn(
-      Env.logtoEffectiveRedirectUri,
-      extraParams: {'organization_id': Env.logtoOrganizationId},
+    await _runInteractiveSignIn(
+      () => _client.signIn(
+        _redirectUri,
+        extraParams: _config.organizationExtraParams,
+      ),
     );
-    await _assertExpectedOrganizationMembership();
+  }
+
+  Future<void> signInWithFacebook() async {
+    await signInWithSocial(_config.facebookConnectorTarget);
+  }
+
+  Future<void> signInWithGoogle() async {
+    await signInWithSocial(_config.googleConnectorTarget);
   }
 
   Future<void> signInWithSocial(String connectorTarget) async {
     final target = connectorTarget.trim();
     if (target.isEmpty) {
-      throw StateError('LOGTO_FACEBOOK_CONNECTOR_TARGET no puede estar vacio');
+      throw const AppAuthException(AppAuthExceptionCode.invalidInput);
     }
 
-    try {
-      await _client.signIn(
-        Env.logtoEffectiveRedirectUri,
+    await _runInteractiveSignIn(
+      () => _client.signIn(
+        _redirectUri,
         directSignIn: 'social:$target',
-        extraParams: {'organization_id': Env.logtoOrganizationId},
-      );
-    } on logto_core.LogtoAuthException catch (error) {
-      final isRecoverableCallbackIssue = error.code ==
-              logto_core.LogtoAuthExceptions.callbackUriValidationError &&
-          const {
-            'missing state',
-            'invalid state',
-            'missing code',
-            'invalid redirect uri',
-          }.contains(error.error);
-      final isRecoverableAuthIssue =
-          error.code == logto_core.LogtoAuthExceptions.authenticationError &&
-              error.error == 'not_authenticated';
-
-      if (!isRecoverableCallbackIssue && !isRecoverableAuthIssue) {
-        rethrow;
-      }
-
-      await _client.signIn(
-        Env.logtoEffectiveRedirectUri,
-        extraParams: {'organization_id': Env.logtoOrganizationId},
-      );
-    }
-
-    await _assertExpectedOrganizationMembership();
+        extraParams: _config.organizationExtraParams,
+      ),
+      retryOnInterruptedCallback: true,
+    );
   }
 
   Future<void> signInWithEmail(String email) async {
     final normalizedEmail = email.trim();
     if (normalizedEmail.isEmpty) {
-      throw StateError('El correo es obligatorio');
+      throw const AppAuthException(AppAuthExceptionCode.invalidInput);
     }
 
-    await _client.signIn(
-      Env.logtoEffectiveRedirectUri,
-      firstScreen: logto_core.FirstScreen.identifierSignIn,
-      identifiers: const [logto_core.IdentifierType.email],
-      loginHint: normalizedEmail,
-      extraParams: {'organization_id': Env.logtoOrganizationId},
+    await _runInteractiveSignIn(
+      () => _client.signIn(
+        _redirectUri,
+        firstScreen: logto_core.FirstScreen.identifierSignIn,
+        identifiers: const [logto_core.IdentifierType.email],
+        loginHint: normalizedEmail,
+        extraParams: _config.organizationExtraParams,
+      ),
     );
-    await _assertExpectedOrganizationMembership();
   }
 
   Future<void> signOut() async {
@@ -82,7 +74,22 @@ class LogtoService {
     if (!isAuthenticated) {
       return;
     }
-    await _client.signOut(Env.logtoEffectivePostLogoutRedirectUri);
+    await _client.signOut(_postLogoutRedirectUri);
+  }
+
+  Future<void> clearSession({bool revokeRefreshToken = false}) async {
+    try {
+      await _client.clearSession(revokeRefreshToken: revokeRefreshToken);
+    } on logto_core.LogtoAuthException catch (error) {
+      final isNotAuthenticated =
+          error.code == logto_core.LogtoAuthExceptions.authenticationError &&
+              const {'not_authenticated', 'not authenticated'}
+                  .contains(error.error);
+
+      if (!isNotAuthenticated) {
+        rethrow;
+      }
+    }
   }
 
   Future<bool> isAuthenticated() async {
@@ -92,7 +99,8 @@ class LogtoService {
   Future<String?> getAccessToken() async {
     try {
       final accessToken = await _client.getAccessToken(
-        resource: Env.logtoAudience,
+        resource: _config.audience,
+        organizationId: _config.organizationId,
       );
       return accessToken?.token;
     } on logto_core.LogtoAuthException catch (error) {
@@ -108,122 +116,88 @@ class LogtoService {
     return _client.idToken;
   }
 
-  Future<void> _assertExpectedOrganizationMembership() async {
-    final claims = await _client.idTokenClaims;
-    if (claims == null) {
-      return;
-    }
+  String get _redirectUri => Env.logtoEffectiveRedirectUri;
 
-    final expectedOrganizationId = Env.logtoOrganizationId.trim();
-    if (_hasExpectedOrganization(claims, expectedOrganizationId)) {
-      return;
-    }
+  String get _postLogoutRedirectUri => Env.logtoEffectivePostLogoutRedirectUri;
 
-    if (!_containsAnyOrganizationClaim(claims)) {
-      // Some social sign-in callbacks do not include organization claims
-      // even when authentication succeeded. Do not fail closed on
-      // unverifiable claims; API authorization still enforces tenant access.
-      return;
-    }
+  Future<void> _runInteractiveSignIn(
+    Future<void> Function() action, {
+    bool retryOnInterruptedCallback = false,
+  }) async {
+    try {
+      await action();
+    } on logto_core.LogtoAuthException catch (error) {
+      if (retryOnInterruptedCallback && _isInterruptedCallback(error)) {
+        await clearSession();
+        try {
+          await action();
+          return;
+        } on logto_core.LogtoAuthException catch (retryError) {
+          throw _mapInteractiveAuthException(retryError);
+        }
+      }
 
-    await _trySignOutSilently();
-    throw StateError('Tu cuenta no pertenece a la organizacion configurada.');
+      throw _mapInteractiveAuthException(error);
+    }
   }
 
-  bool _containsAnyOrganizationClaim(dynamic claims) {
-    final activeOrganization = _claimValue(claims, 'organization_id');
-    if (activeOrganization is String && activeOrganization.trim().isNotEmpty) {
-      return true;
-    }
-
-    final organizationsFromClaim = _claimValue(claims, 'organizations');
-    if (_asStringList(organizationsFromClaim).isNotEmpty) {
-      return true;
-    }
-
-    final organizationClaim =
-        _claimValue(claims, 'urn:logto:claim:organizations');
-    if (organizationClaim is Map && organizationClaim.isNotEmpty) {
-      return true;
-    }
-
-    final organizationsGetter = _claimProperty(claims, 'organizations');
-    return _asStringList(organizationsGetter).isNotEmpty;
+  bool _isInterruptedCallback(logto_core.LogtoAuthException error) {
+    return error.code ==
+                logto_core.LogtoAuthExceptions.callbackUriValidationError &&
+            const {'missing state', 'invalid state', 'missing code'}
+                .contains(error.error) ||
+        error.code == logto_core.LogtoAuthExceptions.authenticationError &&
+            const {'not_authenticated', 'not authenticated'}
+                .contains(error.error);
   }
 
-  bool _hasExpectedOrganization(dynamic claims, String expectedOrganizationId) {
-    final activeOrganization = _claimValue(claims, 'organization_id');
-    if (activeOrganization is String &&
-        activeOrganization == expectedOrganizationId) {
-      return true;
-    }
-
-    final organizationsFromClaim = _claimValue(claims, 'organizations');
-    if (_asStringList(
-      organizationsFromClaim,
-    ).contains(expectedOrganizationId)) {
-      return true;
-    }
-
-    final organizationClaim = _claimValue(
-      claims,
-      'urn:logto:claim:organizations',
-    );
-    if (organizationClaim is Map) {
-      final normalizedMap = organizationClaim.map(
-        (key, value) => MapEntry(key.toString(), value),
+  AppAuthException _mapInteractiveAuthException(
+    logto_core.LogtoAuthException error,
+  ) {
+    final normalizedError = error.error.trim().toLowerCase();
+    final normalizedDescription =
+        error.errorDescription?.trim().toLowerCase() ?? '';
+    if (normalizedDescription.contains('not a member of the organization')) {
+      return AppAuthException(
+        AppAuthExceptionCode.organizationMismatch,
+        cause: error,
       );
-      if (normalizedMap.containsKey(expectedOrganizationId)) {
-        return true;
-      }
     }
 
-    final organizationsGetter = _claimProperty(claims, 'organizations');
-    return _asStringList(organizationsGetter).contains(expectedOrganizationId);
-  }
+    final cancelledErrors = {
+      'access_denied',
+      'user_cancelled',
+      'user_canceled',
+      'cancelled',
+      'canceled',
+    };
 
-  List<String> _asStringList(dynamic value) {
-    if (value is Iterable) {
-      return value
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false);
-    }
-    return const [];
-  }
-
-  dynamic _claimValue(dynamic claims, String key) {
-    if (claims is Map) {
-      return claims[key];
+    if (cancelledErrors.contains(normalizedError) ||
+        normalizedError.contains('cancel') ||
+        normalizedDescription.contains('cancel')) {
+      return AppAuthException(
+        AppAuthExceptionCode.signInCancelled,
+        cause: error,
+      );
     }
 
-    try {
-      return claims[key];
-    } catch (_) {
-      return null;
+    if (error.code ==
+        logto_core.LogtoAuthExceptions.callbackUriValidationError) {
+      return AppAuthException(
+        AppAuthExceptionCode.authCallbackFailed,
+        cause: error,
+      );
     }
-  }
 
-  dynamic _claimProperty(dynamic claims, String propertyName) {
-    if (propertyName == 'organizations') {
-      try {
-        return claims.organizations;
-      } catch (_) {
-        return null;
-      }
+    if (error.code == logto_core.LogtoAuthExceptions.authenticationError &&
+        const {'not_authenticated', 'not authenticated'}
+            .contains(normalizedError)) {
+      return AppAuthException(
+        AppAuthExceptionCode.authCallbackFailed,
+        cause: error,
+      );
     }
-    return null;
-  }
 
-  Future<void> _trySignOutSilently() async {
-    try {
-      final isAuthenticated = await _client.isAuthenticated;
-      if (!isAuthenticated) {
-        return;
-      }
-      await _client.signOut(Env.logtoEffectivePostLogoutRedirectUri);
-    } catch (_) {
-      // No-op: this path is best-effort and should not hide the original error.
-    }
+    return AppAuthException(AppAuthExceptionCode.sessionExpired, cause: error);
   }
 }

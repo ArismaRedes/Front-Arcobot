@@ -36,11 +36,11 @@ final apiClientProvider = Provider<Dio>((ref) {
         }
         handler.next(options);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
         if (error.response?.statusCode == 401 && !invalidationInProgress) {
           invalidationInProgress = true;
-          authController.invalidateSession(
-            errorMessage: 'Sesion invalida. Inicia sesion nuevamente.',
+          await authController.handleUnauthorizedResponse(
+            errorMessage: 'Tu sesion expiro. Inicia sesion nuevamente.',
           );
           invalidationInProgress = false;
         }

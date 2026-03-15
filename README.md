@@ -42,20 +42,17 @@ Ejemplo:
 
 ```bash
 flutter run \
-  --dart-define=LOGTO_ENDPOINT=https://TU_TENANT.logto.app \
-  --dart-define=LOGTO_APP_ID=TU_APP_ID \
-  --dart-define=LOGTO_AUDIENCE=https://api.arcobot \
-  --dart-define=LOGTO_ORGANIZATION_ID=TU_ORG_ID \
+  --dart-define=API_BASE_URL=http://localhost:3000 \
   --dart-define=LOGTO_REDIRECT_URI=io.arcobot.app://callback \
-  --dart-define=LOGTO_POST_LOGOUT_REDIRECT_URI=io.arcobot.app://logout-callback \
-  --dart-define=LOGTO_SCOPES="openid profile email offline_access" \
-  --dart-define=LOGTO_FACEBOOK_CONNECTOR_TARGET=facebook
+  --dart-define=LOGTO_POST_LOGOUT_REDIRECT_URI=io.arcobot.app://logout-callback
 ```
 
-`API_BASE_URL` es opcional y solo aplica cuando consumas API propia desde `core/network/api_client.dart`.
+`API_BASE_URL` debe apuntar al backend (`back-arcobot`) para validar token en `GET /api/v1/auth/me` y cargar `GET /api/v1/auth/config`.
 `LOGTO_REDIRECT_URI` y `LOGTO_POST_LOGOUT_REDIRECT_URI` también son opcionales:
 - En mobile se usan por defecto `io.arcobot.app://callback` y `io.arcobot.app://logout-callback`.
 - En web se usa por defecto la ruta `callback.html` resuelta desde la URL base actual (soporta despliegues en subruta).
+
+El front no debe repetir `endpoint`, `appId`, `audience`, `scopes`, conectores ni `organization_id`. Esa configuración sale del backend.
 
 ## Setup Android, iOS y Web para Logto SDK
 
@@ -69,20 +66,18 @@ flutter run \
   - registrar `CFBundleURLTypes` con scheme `io.arcobot.app`.
 - `web/callback.html`: archivo agregado para cerrar el callback web con `postMessage`.
 
-## Configuracion de Login en Logto (correo/contrasena + Facebook)
+## Configuracion de Login en Logto (correo/contrasena + social)
 
 En el tenant de Logto:
 
 - habilita `Sign-in experience` con metodo por `Email + Password`.
 - habilita y configura el social connector de Facebook.
-- configura `LOGTO_FACEBOOK_CONNECTOR_TARGET` con el target social (por defecto `facebook`).
+- configura en el backend los targets sociales de Facebook y Google.
 
 En la app:
 
 - `TeacherLoginScreen` solicita correo y abre el flujo seguro hospedado de Logto para ingresar contrasena.
-- la autenticacion se ejecuta via Logto SDK (`logto_dart_sdk`) usando:
-  - `first_screen=identifier:sign_in` + `identifier=email` + `login_hint` para correo.
-  - `direct_sign_in=social:facebook` para Facebook.
+- la autenticacion se ejecuta via Logto SDK (`logto_dart_sdk`) usando la politica publicada por el backend.
 
 ## Stack
 - **Framework:** Flutter (iOS + Android + Web desde un solo código)

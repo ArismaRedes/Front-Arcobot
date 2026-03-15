@@ -2,12 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:front_arcobot/core/auth/auth_runtime_config.dart';
+import 'package:front_arcobot/core/auth/auth_exceptions.dart';
 import 'package:front_arcobot/core/auth/logto_service.dart';
 import 'package:front_arcobot/features/auth/data/auth_repository.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 
+final authRuntimeConfigProvider = Provider<AuthRuntimeConfig>((ref) {
+  throw UnimplementedError('authRuntimeConfigProvider must be overridden');
+});
+
 final logtoServiceProvider = Provider<LogtoService>((ref) {
-  return LogtoService();
+  return LogtoService(config: ref.watch(authRuntimeConfigProvider));
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -38,7 +44,65 @@ class AuthController extends StateNotifier<AuthState> {
     );
   }
 
+  Future<void> _clearSessionSilently() async {
+    try {
+      await _repository.clearSession();
+    } catch (error) {
+      debugPrint('No se pudo limpiar la sesion local: $error');
+    }
+  }
+
+  Future<void> _handleControlledError(
+    AppAuthException error, {
+    required _AuthFlow flow,
+  }) async {
+    final shouldResetSession = switch (error.code) {
+      AppAuthExceptionCode.sessionExpired ||
+      AppAuthExceptionCode.backendUnauthorized ||
+      AppAuthExceptionCode.backendInvalidProfile ||
+      AppAuthExceptionCode.organizationMismatch =>
+        true,
+      AppAuthExceptionCode.invalidInput ||
+      AppAuthExceptionCode.signInCancelled ||
+      AppAuthExceptionCode.authCallbackFailed =>
+        false,
+    };
+
+    if (shouldResetSession) {
+      await _clearSessionSilently();
+    }
+
+    final shouldBecomeUnauthenticated = flow == _AuthFlow.restoreSession ||
+        flow == _AuthFlow.unauthorizedResponse;
+
+    state = AuthState(
+      status: shouldBecomeUnauthenticated
+          ? AuthStatus.unauthenticated
+          : AuthStatus.failure,
+      errorMessage: _toFriendlyError(error, flow: flow),
+    );
+  }
+
   String _toFriendlyError(Object error, {required _AuthFlow flow}) {
+    if (error is AppAuthException) {
+      switch (error.code) {
+        case AppAuthExceptionCode.invalidInput:
+          return 'No pudimos validar los datos. Revisa el correo y la contrasena.';
+        case AppAuthExceptionCode.signInCancelled:
+          return 'Inicio de sesion cancelado.';
+        case AppAuthExceptionCode.authCallbackFailed:
+          return 'No pudimos completar el regreso a la app. Intenta nuevamente.';
+        case AppAuthExceptionCode.sessionExpired:
+          return 'Tu sesion expiro. Inicia sesion nuevamente.';
+        case AppAuthExceptionCode.backendUnauthorized:
+          return 'Sesion invalida o sin permisos en backend.';
+        case AppAuthExceptionCode.backendInvalidProfile:
+          return 'No pudimos leer el perfil del usuario desde backend.';
+        case AppAuthExceptionCode.organizationMismatch:
+          return 'Tu cuenta no pertenece a la organizacion autorizada.';
+      }
+    }
+
     final normalized = error.toString().toLowerCase();
 
     if (normalized.contains('guard.invalid_input')) {
@@ -86,6 +150,9 @@ class AuthController extends StateNotifier<AuthState> {
     if (flow == _AuthFlow.signInWithFacebook) {
       return 'No se pudo iniciar con Facebook. Intenta nuevamente.';
     }
+    if (flow == _AuthFlow.signInWithGoogle) {
+      return 'No se pudo iniciar con Google. Intenta nuevamente.';
+    }
     if (flow == _AuthFlow.signOut) {
       return 'No se pudo cerrar sesion. Intenta nuevamente.';
     }
@@ -100,11 +167,24 @@ class AuthController extends StateNotifier<AuthState> {
 
     try {
       final hasSession = await _repository.hasSession();
-      state = hasSession
-          ? const AuthState(status: AuthStatus.authenticated)
-          : const AuthState(status: AuthStatus.unauthenticated);
+      if (!hasSession) {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
+      }
+
+      final backendSession = await _repository.verifyBackendSession();
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        roles: backendSession.roles,
+      );
+    } on AppAuthException catch (error) {
+      debugPrint('No se pudo restaurar la sesion: $error');
+      await _clearSessionSilently();
+      state = const AuthState(status: AuthStatus.unauthenticated);
     } catch (error) {
-      _setFailure(error, flow: _AuthFlow.restoreSession);
+      debugPrint('Fallo inesperado restaurando la sesion: $error');
+      await _clearSessionSilently();
+      state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
 
@@ -113,7 +193,13 @@ class AuthController extends StateNotifier<AuthState> {
 
     try {
       await _repository.signIn();
-      state = const AuthState(status: AuthStatus.authenticated);
+      final backendSession = await _repository.verifyBackendSession();
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        roles: backendSession.roles,
+      );
+    } on AppAuthException catch (error) {
+      await _handleControlledError(error, flow: _AuthFlow.signIn);
     } catch (error) {
       _setFailure(error, flow: _AuthFlow.signIn);
     }
@@ -124,9 +210,35 @@ class AuthController extends StateNotifier<AuthState> {
 
     try {
       await _repository.signInWithFacebook();
-      state = const AuthState(status: AuthStatus.authenticated);
+      final backendSession = await _repository.verifyBackendSession();
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        roles: backendSession.roles,
+      );
+    } on AppAuthException catch (error) {
+      await _handleControlledError(
+        error,
+        flow: _AuthFlow.signInWithFacebook,
+      );
     } catch (error) {
       _setFailure(error, flow: _AuthFlow.signInWithFacebook);
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+
+    try {
+      await _repository.signInWithGoogle();
+      final backendSession = await _repository.verifyBackendSession();
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        roles: backendSession.roles,
+      );
+    } on AppAuthException catch (error) {
+      await _handleControlledError(error, flow: _AuthFlow.signInWithGoogle);
+    } catch (error) {
+      _setFailure(error, flow: _AuthFlow.signInWithGoogle);
     }
   }
 
@@ -135,7 +247,13 @@ class AuthController extends StateNotifier<AuthState> {
 
     try {
       await _repository.signInWithEmail(email);
-      state = const AuthState(status: AuthStatus.authenticated);
+      final backendSession = await _repository.verifyBackendSession();
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        roles: backendSession.roles,
+      );
+    } on AppAuthException catch (error) {
+      await _handleControlledError(error, flow: _AuthFlow.signInWithEmail);
     } catch (error) {
       _setFailure(error, flow: _AuthFlow.signInWithEmail);
     }
@@ -152,6 +270,15 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> handleUnauthorizedResponse({String? errorMessage}) async {
+    await _clearSessionSilently();
+    state = AuthState(
+      status: AuthStatus.unauthenticated,
+      errorMessage:
+          errorMessage ?? 'Tu sesion expiro. Inicia sesion nuevamente.',
+    );
+  }
+
   void invalidateSession({String? errorMessage}) {
     state = AuthState(
       status: AuthStatus.unauthenticated,
@@ -164,6 +291,8 @@ enum _AuthFlow {
   restoreSession,
   signIn,
   signInWithFacebook,
+  signInWithGoogle,
   signInWithEmail,
   signOut,
+  unauthorizedResponse,
 }

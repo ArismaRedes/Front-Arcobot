@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_arcobot/core/auth/auth_exceptions.dart';
 import 'package:front_arcobot/features/auth/data/auth_repository.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
@@ -8,17 +9,23 @@ class FakeAuthRepository implements AuthRepository {
     required this.hasSessionHandler,
     this.signInHandler,
     this.signInWithFacebookHandler,
+    this.signInWithGoogleHandler,
     this.signOutHandler,
+    this.clearSessionHandler,
     this.signInWithEmailHandler,
     this.getAccessTokenHandler,
+    this.verifyBackendSessionHandler,
   });
 
   final Future<bool> Function() hasSessionHandler;
   final Future<void> Function()? signInHandler;
   final Future<void> Function()? signInWithFacebookHandler;
+  final Future<void> Function()? signInWithGoogleHandler;
   final Future<void> Function()? signOutHandler;
+  final Future<void> Function({bool revokeRefreshToken})? clearSessionHandler;
   final Future<void> Function(String email)? signInWithEmailHandler;
   final Future<String?> Function()? getAccessTokenHandler;
+  final Future<BackendSession> Function()? verifyBackendSessionHandler;
 
   @override
   Future<bool> hasSession() => hasSessionHandler();
@@ -31,7 +38,17 @@ class FakeAuthRepository implements AuthRepository {
       signInWithFacebookHandler?.call() ?? Future.value();
 
   @override
+  Future<void> signInWithGoogle() =>
+      signInWithGoogleHandler?.call() ?? Future.value();
+
+  @override
   Future<void> signOut() => signOutHandler?.call() ?? Future.value();
+
+  @override
+  Future<void> clearSession({bool revokeRefreshToken = false}) {
+    return clearSessionHandler?.call(revokeRefreshToken: revokeRefreshToken) ??
+        Future.value();
+  }
 
   @override
   Future<void> signInWithEmail(String email) {
@@ -41,12 +58,28 @@ class FakeAuthRepository implements AuthRepository {
   @override
   Future<String?> getAccessToken() =>
       getAccessTokenHandler?.call() ?? Future.value(null);
+
+  @override
+  Future<BackendSession> verifyBackendSession() =>
+      verifyBackendSessionHandler?.call() ??
+      Future.value(
+        const BackendSession(
+          subject: 'test-user',
+          roles: <String>[],
+        ),
+      );
 }
 
 void main() {
   test('restoreSession sets authenticated when session exists', () async {
     final controller = AuthController(
-      FakeAuthRepository(hasSessionHandler: () async => true),
+      FakeAuthRepository(
+        hasSessionHandler: () async => true,
+        verifyBackendSessionHandler: () async => const BackendSession(
+          subject: 'u1',
+          roles: <String>['teacher'],
+        ),
+      ),
       autoRestore: false,
     );
     addTearDown(controller.dispose);
@@ -54,6 +87,7 @@ void main() {
     await controller.restoreSession();
 
     expect(controller.state.status, AuthStatus.authenticated);
+    expect(controller.state.roles, const <String>['teacher']);
     expect(controller.state.errorMessage, isNull);
   });
 
@@ -91,11 +125,44 @@ void main() {
     );
   });
 
+  test(
+    'restoreSession clears local session and becomes unauthenticated on backend unauthorized',
+    () async {
+      var clearSessionCalls = 0;
+      final controller = AuthController(
+        FakeAuthRepository(
+          hasSessionHandler: () async => true,
+          verifyBackendSessionHandler: () async => throw const AppAuthException(
+            AppAuthExceptionCode.backendUnauthorized,
+          ),
+          clearSessionHandler: ({bool revokeRefreshToken = false}) async {
+            clearSessionCalls += 1;
+          },
+        ),
+        autoRestore: false,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.restoreSession();
+
+      expect(clearSessionCalls, 1);
+      expect(controller.state.status, AuthStatus.unauthenticated);
+      expect(
+        controller.state.errorMessage,
+        'Sesion invalida o sin permisos en backend.',
+      );
+    },
+  );
+
   test('signInWithEmail sets authenticated on success', () async {
     final controller = AuthController(
       FakeAuthRepository(
         hasSessionHandler: () async => false,
         signInWithEmailHandler: (_) async {},
+        verifyBackendSessionHandler: () async => const BackendSession(
+          subject: 'u1',
+          roles: <String>['admin'],
+        ),
       ),
       autoRestore: false,
     );
@@ -104,6 +171,7 @@ void main() {
     await controller.signInWithEmail('docente@colegio.edu');
 
     expect(controller.state.status, AuthStatus.authenticated);
+    expect(controller.state.roles, const <String>['admin']);
     expect(controller.state.errorMessage, isNull);
   });
 
@@ -148,6 +216,85 @@ void main() {
       expect(
         controller.state.errorMessage,
         'No pudimos validar los datos. Revisa el correo y la contrasena.',
+      );
+    },
+  );
+
+  test(
+    'signInWithEmail clears local session when backend validation fails',
+    () async {
+      var clearSessionCalls = 0;
+      final controller = AuthController(
+        FakeAuthRepository(
+          hasSessionHandler: () async => false,
+          signInWithEmailHandler: (_) async {},
+          verifyBackendSessionHandler: () async => throw const AppAuthException(
+            AppAuthExceptionCode.backendUnauthorized,
+          ),
+          clearSessionHandler: ({bool revokeRefreshToken = false}) async {
+            clearSessionCalls += 1;
+          },
+        ),
+        autoRestore: false,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.signInWithEmail('docente@colegio.edu');
+
+      expect(clearSessionCalls, 1);
+      expect(controller.state.status, AuthStatus.failure);
+      expect(
+        controller.state.errorMessage,
+        'Sesion invalida o sin permisos en backend.',
+      );
+    },
+  );
+
+  test('signInWithGoogle sets authenticated on success', () async {
+    final controller = AuthController(
+      FakeAuthRepository(
+        hasSessionHandler: () async => false,
+        signInWithGoogleHandler: () async {},
+        verifyBackendSessionHandler: () async => const BackendSession(
+          subject: 'u1',
+          roles: <String>['admin'],
+        ),
+      ),
+      autoRestore: false,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.signInWithGoogle();
+
+    expect(controller.state.status, AuthStatus.authenticated);
+    expect(controller.state.roles, const <String>['admin']);
+    expect(controller.state.errorMessage, isNull);
+  });
+
+  test(
+    'handleUnauthorizedResponse clears local session and keeps user logged out',
+    () async {
+      var clearSessionCalls = 0;
+      final controller = AuthController(
+        FakeAuthRepository(
+          hasSessionHandler: () async => true,
+          clearSessionHandler: ({bool revokeRefreshToken = false}) async {
+            clearSessionCalls += 1;
+          },
+        ),
+        autoRestore: false,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.handleUnauthorizedResponse(
+        errorMessage: 'Tu sesion expiro. Inicia sesion nuevamente.',
+      );
+
+      expect(clearSessionCalls, 1);
+      expect(controller.state.status, AuthStatus.unauthenticated);
+      expect(
+        controller.state.errorMessage,
+        'Tu sesion expiro. Inicia sesion nuevamente.',
       );
     },
   );

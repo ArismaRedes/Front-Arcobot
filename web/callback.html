@@ -34,7 +34,7 @@
 
         localStorage.setItem('flutter-web-auth-2', window.location.href);
         window.close();
-        window.location.replace('/');
+        window.location.replace(new URL('./', window.location.href).toString());
       })();
     </script>
   </head>

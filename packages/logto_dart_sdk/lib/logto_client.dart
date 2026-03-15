@@ -383,6 +383,37 @@ class LogtoClient {
     }
   }
 
+  // Clear local session state without triggering browser logout navigation.
+  Future<void> clearSession({bool revokeRefreshToken = false}) async {
+    final httpClient = _httpClient ?? http.Client();
+
+    try {
+      if (revokeRefreshToken) {
+        final refreshToken = await _tokenStorage.refreshToken;
+
+        if (refreshToken != null) {
+          try {
+            final oidcConfig = await _getOidcConfig(httpClient);
+            await logto_core.revoke(
+              httpClient: httpClient,
+              revocationEndpoint: oidcConfig.revocationEndpoint,
+              clientId: config.appId,
+              token: refreshToken,
+            );
+          } catch (_) {
+            // Best-effort revoke. Local cleanup still takes precedence.
+          }
+        }
+      }
+
+      await _tokenStorage.clear();
+    } finally {
+      if (_httpClient == null) {
+        httpClient.close();
+      }
+    }
+  }
+
   // Fetch user info from the user info endpoint.
   Future<LogtoUserInfoResponse> getUserInfo() async {
     final httpClient = _httpClient ?? http.Client();
