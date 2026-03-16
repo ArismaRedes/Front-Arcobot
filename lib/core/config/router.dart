@@ -20,9 +20,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   });
 
   final router = GoRouter(
-    initialLocation: PreloadScreen.routePath,
+    initialLocation: '/',
     refreshListenable: authStateNotifier,
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (_, __) => PreloadScreen.routePath,
+      ),
       GoRoute(
         path: PreloadScreen.routePath,
         builder: (_, __) => const PreloadScreen(),

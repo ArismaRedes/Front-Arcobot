@@ -46,7 +46,6 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
     );
     final usersAsync = ref.watch(superadminUsersProvider(query));
     final width = MediaQuery.sizeOf(context).width;
-    final wide = width >= 1040;
 
     return Scaffold(
       body: Container(
@@ -58,72 +57,36 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
           ),
         ),
         child: SafeArea(
-          child: Stack(
-            children: [
-              const Positioned(
-                top: -90,
-                right: -60,
-                child: _BackgroundBubble(
-                  size: 240,
-                  color: Color(0x223A86FF),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1240),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TopBar(
+                      roles: authState.roles,
+                      onSignOut: () =>
+                          ref.read(authControllerProvider.notifier).signOut(),
+                    ),
+                    const SizedBox(height: ArcobotSpacing.lg),
+                    _HeroSection(usersAsync: usersAsync, width: width),
+                    const SizedBox(height: ArcobotSpacing.lg),
+                    _UsersSection(
+                      controller: _searchController,
+                      search: _search,
+                      onChanged: _handleSearchChanged,
+                      onRefresh: () =>
+                          ref.refresh(superadminUsersProvider(query).future),
+                      usersAsync: usersAsync,
+                      onPrevious: () => setState(() => _page -= 1),
+                      onNext: () => setState(() => _page += 1),
+                    ),
+                  ],
                 ),
               ),
-              const Positioned(
-                bottom: -90,
-                left: -70,
-                child: _BackgroundBubble(
-                  size: 220,
-                  color: Color(0x2219BFB7),
-                ),
-              ),
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1240),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                    children: [
-                      _TopBar(
-                        roles: authState.roles,
-                        onSignOut: () =>
-                            ref.read(authControllerProvider.notifier).signOut(),
-                      ),
-                      const SizedBox(height: ArcobotSpacing.lg),
-                      if (wide)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 8,
-                              child: _HeroCard(usersAsync: usersAsync),
-                            ),
-                            const SizedBox(width: ArcobotSpacing.md),
-                            Expanded(
-                              flex: 5,
-                              child: _MetricsColumn(usersAsync: usersAsync),
-                            ),
-                          ],
-                        )
-                      else ...[
-                        _HeroCard(usersAsync: usersAsync),
-                        const SizedBox(height: ArcobotSpacing.md),
-                        _MetricsColumn(usersAsync: usersAsync),
-                      ],
-                      const SizedBox(height: ArcobotSpacing.lg),
-                      _UsersWorkspace(
-                        controller: _searchController,
-                        search: _search,
-                        onChanged: _handleSearchChanged,
-                        onRefresh: () =>
-                            ref.refresh(superadminUsersProvider(query).future),
-                        usersAsync: usersAsync,
-                        onPrevious: () => setState(() => _page -= 1),
-                        onNext: () => setState(() => _page += 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -136,7 +99,6 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       if (!mounted) {
         return;
       }
-
       setState(() {
         _search = value.trim();
         _page = 1;
@@ -159,42 +121,21 @@ class _TopBar extends StatelessWidget {
     final theme = Theme.of(context);
     final compact = MediaQuery.sizeOf(context).width < 760;
 
-    final identity = Row(
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 58,
-          height: 58,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+        Text(
+          'Panel Superadmin',
+          style: theme.textTheme.headlineSmall?.copyWith(
             color: const Color(0xFF102A43),
-            boxShadow: ArcobotShadows.soft,
-          ),
-          child: const Icon(
-            Icons.admin_panel_settings_rounded,
-            color: Colors.white,
-            size: 28,
+            fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(width: ArcobotSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Panel Superadmin',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: const Color(0xFF102A43),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: ArcobotSpacing.xxs),
-              Text(
-                'Usuarios y roles reales consultados desde backend',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: ArcobotColors.textSecondary,
-                ),
-              ),
-            ],
+        const SizedBox(height: ArcobotSpacing.xxs),
+        Text(
+          'Usuarios y roles resueltos por backend',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: ArcobotColors.textSecondary,
           ),
         ),
       ],
@@ -206,18 +147,16 @@ class _TopBar extends StatelessWidget {
       children: [
         if (roles.isNotEmpty)
           _StatusPill(
-            icon: Icons.verified_user_rounded,
             label: roles.map(_humanizeRole).join(' · '),
             background: const Color(0xFFE8F7F1),
             foreground: const Color(0xFF0B6E5E),
           ),
-        FilledButton.tonalIcon(
-          onPressed: onSignOut,
-          icon: const Icon(Icons.logout_rounded),
-          label: const Text('Cerrar sesion'),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFEAF2FF),
-            foregroundColor: const Color(0xFF1F4E79),
+        SizedBox(
+          width: 172,
+          child: FilledButton.tonalIcon(
+            onPressed: onSignOut,
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Cerrar sesion'),
           ),
         ),
       ],
@@ -227,7 +166,7 @@ class _TopBar extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          identity,
+          title,
           const SizedBox(height: ArcobotSpacing.md),
           actions,
         ],
@@ -235,8 +174,9 @@ class _TopBar extends StatelessWidget {
     }
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: identity),
+        Expanded(child: title),
         const SizedBox(width: ArcobotSpacing.md),
         actions,
       ],
@@ -244,18 +184,91 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.usersAsync});
+class _HeroSection extends StatelessWidget {
+  const _HeroSection({
+    required this.usersAsync,
+    required this.width,
+  });
 
   final AsyncValue<SuperadminUsersPage> usersAsync;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final total = usersAsync.maybeWhen(
       data: (page) => page.total,
       orElse: () => null,
     );
+    final visible = usersAsync.maybeWhen(
+      data: (page) => page.users.length,
+      orElse: () => null,
+    );
+    final page = usersAsync.maybeWhen(
+      data: (data) => data.page,
+      orElse: () => null,
+    );
+
+    final metrics = Wrap(
+      spacing: ArcobotSpacing.sm,
+      runSpacing: ArcobotSpacing.sm,
+      children: [
+        _MetricCard(
+          label: 'Fuente',
+          value: 'Logto M2M',
+          tint: const Color(0xFFEAF2FF),
+        ),
+        _MetricCard(
+          label: 'Usuarios visibles',
+          value: visible?.toString() ?? '...',
+          tint: const Color(0xFFE8F7F1),
+        ),
+        _MetricCard(
+          label: 'Total',
+          value: total?.toString() ?? '...',
+          tint: const Color(0xFFFFF4DF),
+        ),
+        _MetricCard(
+          label: 'Pagina',
+          value: page?.toString() ?? '...',
+          tint: const Color(0xFFF3ECFF),
+        ),
+      ],
+    );
+
+    if (width < 980) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _HeroBanner(),
+          const SizedBox(height: ArcobotSpacing.md),
+          metrics,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Expanded(
+          flex: 7,
+          child: _HeroBanner(),
+        ),
+        const SizedBox(width: ArcobotSpacing.md),
+        Expanded(
+          flex: 5,
+          child: metrics,
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
     return Container(
       padding: const EdgeInsets.all(ArcobotSpacing.xl),
@@ -274,27 +287,8 @@ class _HeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: ArcobotSpacing.sm,
-              vertical: ArcobotSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0x18FFFFFF),
-              borderRadius: BorderRadius.circular(ArcobotRadii.pill),
-            ),
-            child: Text(
-              'ORGANIZACION PROTEGIDA',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: Colors.white,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: ArcobotSpacing.md),
           Text(
-            'Control operativo de usuarios',
+            'Centro de control de usuarios',
             style: theme.textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,
@@ -303,143 +297,59 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: ArcobotSpacing.sm),
           Text(
-            'Esta vista no confia en claims decorativos del token. El backend valida JWT, organización y resuelve roles por Management API.',
+            'La organizacion y los roles se validan en backend. Esta vista solo representa datos ya autorizados.',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: const Color(0xFFE8F0F7),
               height: 1.4,
             ),
           ),
-          const SizedBox(height: ArcobotSpacing.lg),
-          Wrap(
-            spacing: ArcobotSpacing.sm,
-            runSpacing: ArcobotSpacing.sm,
-            children: [
-              _InlineMetric(
-                label: 'Fuente de verdad',
-                value: 'Logto M2M',
-              ),
-              _InlineMetric(
-                label: 'Usuarios totales',
-                value: total?.toString() ?? '...',
-              ),
-            ],
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _MetricsColumn extends StatelessWidget {
-  const _MetricsColumn({required this.usersAsync});
-
-  final AsyncValue<SuperadminUsersPage> usersAsync;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = usersAsync.maybeWhen(
-      data: (page) => page.total,
-      orElse: () => null,
-    );
-    final visible = usersAsync.maybeWhen(
-      data: (page) => page.users.length,
-      orElse: () => null,
-    );
-    final pageNumber = usersAsync.maybeWhen(
-      data: (page) => page.page,
-      orElse: () => null,
-    );
-
-    return Column(
-      children: [
-        _MetricCard(
-          title: 'Usuarios visibles',
-          value: visible?.toString() ?? '...',
-          color: const Color(0xFFEAF2FF),
-          icon: Icons.visibility_rounded,
-          accent: ArcobotColors.skyBlue,
-        ),
-        const SizedBox(height: ArcobotSpacing.md),
-        _MetricCard(
-          title: 'Inventario total',
-          value: total?.toString() ?? '...',
-          color: const Color(0xFFE8F7F1),
-          icon: Icons.groups_rounded,
-          accent: ArcobotColors.successGreen,
-        ),
-        const SizedBox(height: ArcobotSpacing.md),
-        _MetricCard(
-          title: 'Pagina actual',
-          value: pageNumber?.toString() ?? '...',
-          color: const Color(0xFFFFF4DF),
-          icon: Icons.layers_rounded,
-          accent: const Color(0xFFB7791F),
-        ),
-      ],
     );
   }
 }
 
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
-    required this.title,
+    required this.label,
     required this.value,
-    required this.color,
-    required this.icon,
-    required this.accent,
+    required this.tint,
   });
 
-  final String title;
+  final String label;
   final String value;
-  final Color color;
-  final IconData icon;
-  final Color accent;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(ArcobotSpacing.lg),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(ArcobotRadii.lg),
-        border: Border.all(color: ArcobotColors.softBorder),
-        boxShadow: ArcobotShadows.soft,
+      constraints: const BoxConstraints(minWidth: 150),
+      padding: const EdgeInsets.symmetric(
+        horizontal: ArcobotSpacing.md,
+        vertical: ArcobotSpacing.sm,
       ),
-      child: Row(
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(ArcobotRadii.lg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(16),
+          Text(
+            value,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF102A43),
             ),
-            child: Icon(icon, color: accent),
           ),
-          const SizedBox(width: ArcobotSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: ArcobotColors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: ArcobotSpacing.xxs),
-                Text(
-                  value,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: const Color(0xFF102A43),
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+          const SizedBox(height: ArcobotSpacing.xxs),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: ArcobotColors.textSecondary,
             ),
           ),
         ],
@@ -448,8 +358,8 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _UsersWorkspace extends StatelessWidget {
-  const _UsersWorkspace({
+class _UsersSection extends StatelessWidget {
+  const _UsersSection({
     required this.controller,
     required this.search,
     required this.onChanged,
@@ -480,10 +390,9 @@ class _UsersWorkspace extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeader(search: search),
-          const SizedBox(height: ArcobotSpacing.md),
           _UsersToolbar(
             controller: controller,
+            search: search,
             onChanged: onChanged,
             onRefresh: onRefresh,
           ),
@@ -507,53 +416,43 @@ class _UsersWorkspace extends StatelessWidget {
   }
 }
 
-class _WorkspaceHeader extends StatelessWidget {
-  const _WorkspaceHeader({required this.search});
-
-  final String search;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Usuarios de la organización',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            color: const Color(0xFF102A43),
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: ArcobotSpacing.xs),
-        Text(
-          search.isEmpty
-              ? 'Explora usuarios, roles y estado real de acceso.'
-              : 'Filtro activo: "$search"',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: ArcobotColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _UsersToolbar extends StatelessWidget {
   const _UsersToolbar({
     required this.controller,
+    required this.search,
     required this.onChanged,
     required this.onRefresh,
   });
 
   final TextEditingController controller;
+  final String search;
   final ValueChanged<String> onChanged;
   final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Usuarios de la organización',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: const Color(0xFF102A43),
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: ArcobotSpacing.xs),
+        Text(
+          search.isEmpty
+              ? 'Consulta usuarios, roles y datos operativos.'
+              : 'Filtro activo: "$search"',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ArcobotColors.textSecondary,
+              ),
+        ),
+      ],
+    );
 
     final field = TextField(
       controller: controller,
@@ -578,6 +477,8 @@ class _UsersToolbar extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          title,
+          const SizedBox(height: ArcobotSpacing.md),
           field,
           const SizedBox(height: ArcobotSpacing.sm),
           FilledButton.tonalIcon(
@@ -589,14 +490,21 @@ class _UsersToolbar extends StatelessWidget {
       );
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: field),
-        const SizedBox(width: ArcobotSpacing.sm),
-        FilledButton.tonalIcon(
-          onPressed: onRefresh,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Actualizar'),
+        title,
+        const SizedBox(height: ArcobotSpacing.md),
+        Row(
+          children: [
+            Expanded(child: field),
+            const SizedBox(width: ArcobotSpacing.sm),
+            FilledButton.tonalIcon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Actualizar'),
+            ),
+          ],
         ),
       ],
     );
@@ -616,23 +524,39 @@ class _UsersPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final tableMode = width >= 1180;
-    final gridMode = width >= 720 && width < 1180;
+    final tableMode = MediaQuery.sizeOf(context).width >= 1080;
 
     if (page.users.isEmpty) {
       return const _UsersEmpty();
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SummaryRow(page: page),
+        Wrap(
+          spacing: ArcobotSpacing.sm,
+          runSpacing: ArcobotSpacing.sm,
+          children: [
+            _MetricCard(
+              label: 'Visibles',
+              value: '${page.users.length}',
+              tint: const Color(0xFFEAF2FF),
+            ),
+            _MetricCard(
+              label: 'Total',
+              value: '${page.total}',
+              tint: const Color(0xFFE8F7F1),
+            ),
+            _MetricCard(
+              label: 'Pagina',
+              value: '${page.page}',
+              tint: const Color(0xFFFFF4DF),
+            ),
+          ],
+        ),
         const SizedBox(height: ArcobotSpacing.md),
         if (tableMode)
           _UsersTable(users: page.users)
-        else if (gridMode)
-          _UsersGrid(users: page.users)
         else
           _UsersCards(users: page.users),
         const SizedBox(height: ArcobotSpacing.md),
@@ -644,107 +568,6 @@ class _UsersPanel extends StatelessWidget {
           onNext: onNext,
         ),
       ],
-    );
-  }
-}
-
-class _UsersGrid extends StatelessWidget {
-  const _UsersGrid({required this.users});
-
-  final List<SuperadminUser> users;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final crossAxisCount = width >= 980 ? 2 : 1;
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: ArcobotSpacing.sm,
-        mainAxisSpacing: ArcobotSpacing.sm,
-        childAspectRatio: crossAxisCount == 2 ? 1.58 : 1.95,
-      ),
-      itemCount: users.length,
-      itemBuilder: (context, index) => _UserCard(user: users[index]),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.page});
-
-  final SuperadminUsersPage page;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: ArcobotSpacing.sm,
-      runSpacing: ArcobotSpacing.sm,
-      children: [
-        _SummaryChip(
-          label: 'Visibles',
-          value: '${page.users.length}',
-          color: const Color(0xFFEAF2FF),
-        ),
-        _SummaryChip(
-          label: 'Total',
-          value: '${page.total}',
-          color: const Color(0xFFE8F7F1),
-        ),
-        _SummaryChip(
-          label: 'Pagina',
-          value: '${page.page}',
-          color: const Color(0xFFFFF4DF),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: ArcobotSpacing.md,
-        vertical: ArcobotSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(ArcobotRadii.pill),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: ArcobotColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -807,7 +630,7 @@ class _UsersTable extends StatelessWidget {
                         ),
                       )),
                       DataCell(SizedBox(
-                        width: 200,
+                        width: 220,
                         child: Text(
                           user.id,
                           maxLines: 1,
@@ -855,75 +678,66 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final splitDetails = constraints.maxWidth >= 520;
+    final compact = MediaQuery.sizeOf(context).width < 640;
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(ArcobotSpacing.md),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FBFD),
-            borderRadius: BorderRadius.circular(ArcobotRadii.lg),
-            border: Border.all(color: ArcobotColors.softBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _UserIdentity(user: user),
-              const SizedBox(height: ArcobotSpacing.md),
-              if (splitDetails)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _InfoBlock(
-                        label: 'Correo',
-                        icon: Icons.mail_outline_rounded,
-                        value: user.primaryEmail ?? 'Sin correo principal',
-                      ),
-                    ),
-                    const SizedBox(width: ArcobotSpacing.md),
-                    Expanded(
-                      child: _InfoBlock(
-                        label: 'ID',
-                        icon: Icons.badge_outlined,
-                        value: user.id,
-                      ),
-                    ),
-                  ],
-                )
-              else ...[
-                _InfoBlock(
-                  label: 'Correo',
-                  icon: Icons.mail_outline_rounded,
-                  value: user.primaryEmail ?? 'Sin correo principal',
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(ArcobotSpacing.md),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FBFD),
+        borderRadius: BorderRadius.circular(ArcobotRadii.lg),
+        border: Border.all(color: ArcobotColors.softBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _UserIdentity(user: user),
+          const SizedBox(height: ArcobotSpacing.md),
+          if (compact) ...[
+            _InfoBlock(
+              label: 'Correo',
+              value: user.primaryEmail ?? 'Sin correo principal',
+            ),
+            const SizedBox(height: ArcobotSpacing.sm),
+            _InfoBlock(
+              label: 'ID',
+              value: user.id,
+            ),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _InfoBlock(
+                    label: 'Correo',
+                    value: user.primaryEmail ?? 'Sin correo principal',
+                  ),
                 ),
-                const SizedBox(height: ArcobotSpacing.sm),
-                _InfoBlock(
-                  label: 'ID',
-                  icon: Icons.badge_outlined,
-                  value: user.id,
+                const SizedBox(width: ArcobotSpacing.md),
+                Expanded(
+                  child: _InfoBlock(
+                    label: 'ID',
+                    value: user.id,
+                  ),
                 ),
               ],
-              const SizedBox(height: ArcobotSpacing.md),
-              Text(
-                'Roles',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            ),
+          const SizedBox(height: ArcobotSpacing.md),
+          Text(
+            'Roles',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: ArcobotColors.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
-              ),
-              const SizedBox(height: ArcobotSpacing.xs),
-              Wrap(
-                spacing: ArcobotSpacing.xs,
-                runSpacing: ArcobotSpacing.xs,
-                children: _buildRoleBadges(user.roles),
-              ),
-            ],
           ),
-        );
-      },
+          const SizedBox(height: ArcobotSpacing.xs),
+          Wrap(
+            spacing: ArcobotSpacing.xs,
+            runSpacing: ArcobotSpacing.xs,
+            children: _buildRoleBadges(user.roles),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -981,6 +795,43 @@ class _UserIdentity extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoBlock extends StatelessWidget {
+  const _InfoBlock({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: ArcobotColors.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: ArcobotSpacing.xs),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: const Color(0xFF102A43),
+            fontWeight: FontWeight.w600,
+          ),
+          softWrap: true,
         ),
       ],
     );
@@ -1057,7 +908,7 @@ class _PaginationBar extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Mostrando $start-$end de $total'),
+          Text('Mostrando $start-$end de $total usuarios'),
           const SizedBox(height: ArcobotSpacing.sm),
           controls,
         ],
@@ -1066,9 +917,7 @@ class _PaginationBar extends StatelessWidget {
 
     return Row(
       children: [
-        Expanded(
-          child: Text('Mostrando $start-$end de $total usuarios'),
-        ),
+        Expanded(child: Text('Mostrando $start-$end de $total usuarios')),
         controls,
       ],
     );
@@ -1193,60 +1042,13 @@ class _UsersEmpty extends StatelessWidget {
   }
 }
 
-class _InlineMetric extends StatelessWidget {
-  const _InlineMetric({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: ArcobotSpacing.md,
-        vertical: ArcobotSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0x18FFFFFF),
-        borderRadius: BorderRadius.circular(ArcobotRadii.lg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: const Color(0xFFE7F1F8),
-            ),
-          ),
-          const SizedBox(height: ArcobotSpacing.xxs),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
-    required this.icon,
     required this.label,
     required this.background,
     required this.foreground,
   });
 
-  final IconData icon;
   final String label;
   final Color background;
   final Color foreground;
@@ -1262,87 +1064,11 @@ class _StatusPill extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(ArcobotRadii.pill),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: foreground),
-          const SizedBox(width: ArcobotSpacing.xs),
-          Text(
-            label,
-            style: TextStyle(
-              color: foreground,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoBlock extends StatelessWidget {
-  const _InfoBlock({
-    required this.label,
-    required this.icon,
-    required this.value,
-  });
-
-  final String label;
-  final IconData icon;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: ArcobotColors.textSecondary),
-            const SizedBox(width: ArcobotSpacing.xs),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: ArcobotColors.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: ArcobotSpacing.xs),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF102A43),
-            fontWeight: FontWeight.w600,
-          ),
-          softWrap: true,
-        ),
-      ],
-    );
-  }
-}
-
-class _BackgroundBubble extends StatelessWidget {
-  const _BackgroundBubble({
-    required this.size,
-    required this.color,
-  });
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -1351,9 +1077,7 @@ class _BackgroundBubble extends StatelessWidget {
 
 List<Widget> _buildRoleBadges(List<String> roles) {
   if (roles.isEmpty) {
-    return const [
-      _RoleBadge(role: 'sin rol'),
-    ];
+    return const [_RoleBadge(role: 'sin rol')];
   }
 
   return roles.map((role) => _RoleBadge(role: role)).toList(growable: false);

@@ -3,10 +3,21 @@ import 'package:flutter/foundation.dart';
 class Env {
   const Env._();
 
-  static const String apiBaseUrl = String.fromEnvironment(
+  static const String _configuredApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
+    defaultValue: '',
   );
+
+  static String get apiBaseUrl {
+    final configured = _configuredApiBaseUrl.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+    if (kIsWeb) {
+      return _resolveWebApiBaseUrl();
+    }
+    return 'http://localhost:3000';
+  }
 
   static const String logtoRedirectUri = String.fromEnvironment(
     'LOGTO_REDIRECT_URI',
@@ -38,6 +49,16 @@ class Env {
           fragment: null,
         );
     return callbackUri.toString();
+  }
+
+  static String _resolveWebApiBaseUrl() {
+    final baseUri = Uri.base.replace(
+      port: 3000,
+      path: '',
+      queryParameters: null,
+      fragment: null,
+    );
+    return baseUri.toString();
   }
 
   static bool _isWebCompatibleRedirectUri(String value) {

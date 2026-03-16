@@ -14,7 +14,6 @@ final apiClientProvider = Provider<Dio>((ref) {
       baseUrl: Env.apiBaseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 20),
-      sendTimeout: const Duration(seconds: 20),
       headers: const {'Content-Type': 'application/json'},
     ),
   );
