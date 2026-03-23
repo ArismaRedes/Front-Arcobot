@@ -9,6 +9,91 @@ import 'package:front_arcobot/features/superadmin/presentation/superadmin_screen
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 
+Future<LottieComposition?> decodePreloadDotLottie(List<int> bytes) async {
+  return LottieComposition.decodeZip(
+    bytes,
+    filePicker: (files) {
+      final animationFile = files.where((file) {
+        final name = file.name.toLowerCase();
+        return name.endsWith('.json') &&
+            name.contains('animations/') &&
+            !name.endsWith('manifest.json');
+      });
+      if (animationFile.isNotEmpty) {
+        return animationFile.first;
+      }
+
+      final nonManifestJson = files.where((file) {
+        final name = file.name.toLowerCase();
+        return name.endsWith('.json') && !name.endsWith('manifest.json');
+      });
+      if (nonManifestJson.isNotEmpty) {
+        return nonManifestJson.first;
+      }
+
+      final anyJson = files.where((file) => file.name.endsWith('.json'));
+      return anyJson.isNotEmpty ? anyJson.first : null;
+    },
+  );
+}
+
+class PreloadVisual extends StatelessWidget {
+  const PreloadVisual({
+    this.controller,
+    this.repeat = false,
+    this.animate = false,
+    this.onLoaded,
+    this.onErrorShown,
+    super.key,
+  });
+
+  final Animation<double>? controller;
+  final bool repeat;
+  final bool animate;
+  final void Function(LottieComposition composition)? onLoaded;
+  final VoidCallback? onErrorShown;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final lottieSize = MediaQuery.sizeOf(context).width.clamp(240.0, 360.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: lottieSize,
+            height: lottieSize,
+            child: Lottie.asset(
+              AppAssets.preloadLottie,
+              fit: BoxFit.contain,
+              repeat: repeat,
+              animate: animate,
+              controller: controller,
+              decoder: decodePreloadDotLottie,
+              onLoaded: onLoaded,
+              errorBuilder: (_, __, ___) {
+                onErrorShown?.call();
+                return PreloadFallbackIllustration(size: lottieSize);
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cargando...',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0B6E5E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class PreloadScreen extends ConsumerStatefulWidget {
   const PreloadScreen({super.key});
 
@@ -26,34 +111,6 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
   bool _lottieFallbackShown = false;
   static const _preloadMinDuration = Duration(milliseconds: 2500);
   late final AnimationController _lottieController;
-
-  Future<LottieComposition?> _dotLottieDecoder(List<int> bytes) async {
-    return LottieComposition.decodeZip(
-      bytes,
-      filePicker: (files) {
-        final animationFile = files.where((file) {
-          final name = file.name.toLowerCase();
-          return name.endsWith('.json') &&
-              name.contains('animations/') &&
-              !name.endsWith('manifest.json');
-        });
-        if (animationFile.isNotEmpty) {
-          return animationFile.first;
-        }
-
-        final nonManifestJson = files.where((file) {
-          final name = file.name.toLowerCase();
-          return name.endsWith('.json') && !name.endsWith('manifest.json');
-        });
-        if (nonManifestJson.isNotEmpty) {
-          return nonManifestJson.first;
-        }
-
-        final anyJson = files.where((file) => file.name.endsWith('.json'));
-        return anyJson.isNotEmpty ? anyJson.first : null;
-      },
-    );
-  }
 
   @override
   void initState() {
@@ -85,6 +142,18 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
       ..duration = composition.duration
       ..reset()
       ..forward();
+  }
+
+  void _handleLottieFallback() {
+    if (_lottieFallbackShown) {
+      return;
+    }
+
+    _lottieFallbackShown = true;
+    _lottieCompleted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryNavigate();
+    });
   }
 
   void _tryNavigate() {
@@ -120,9 +189,6 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
       _tryNavigate();
     });
 
-    final theme = Theme.of(context);
-    final lottieSize = MediaQuery.sizeOf(context).width.clamp(240.0, 360.0);
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -133,46 +199,12 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
           ),
         ),
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: lottieSize,
-                  height: lottieSize,
-                  child: Lottie.asset(
-                    AppAssets.preloadLottie,
-                    fit: BoxFit.contain,
-                    repeat: false,
-                    animate: false,
-                    controller: _lottieController,
-                    decoder: _dotLottieDecoder,
-                    onLoaded: _onLottieLoaded,
-                    errorBuilder: (_, __, ___) {
-                      if (!_lottieFallbackShown) {
-                        _lottieFallbackShown = true;
-                        _lottieCompleted = true;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _tryNavigate();
-                        });
-                      }
-                      return _PreloadFallbackIllustration(
-                        size: lottieSize,
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Cargando...',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0B6E5E),
-                  ),
-                ),
-              ],
-            ),
+          child: PreloadVisual(
+            controller: _lottieController,
+            repeat: false,
+            animate: false,
+            onLoaded: _onLottieLoaded,
+            onErrorShown: _handleLottieFallback,
           ),
         ),
       ),
@@ -180,8 +212,8 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
   }
 }
 
-class _PreloadFallbackIllustration extends StatelessWidget {
-  const _PreloadFallbackIllustration({required this.size});
+class PreloadFallbackIllustration extends StatelessWidget {
+  const PreloadFallbackIllustration({required this.size, super.key});
 
   final double size;
 

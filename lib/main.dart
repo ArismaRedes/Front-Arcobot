@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/config/router.dart';
 import 'package:front_arcobot/core/theme/app_theme.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
+import 'package:front_arcobot/features/preload/presentation/preload_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,12 +32,22 @@ class ArcobotBootstrapApp extends StatefulWidget {
 }
 
 class _ArcobotBootstrapAppState extends State<ArcobotBootstrapApp> {
+  static const _minimumBootstrapDuration = Duration(milliseconds: 2500);
   late Future<AuthRuntimeConfig> _bootstrapFuture;
 
   @override
   void initState() {
     super.initState();
-    _bootstrapFuture = loadAuthRuntimeConfig();
+    _bootstrapFuture = _loadBootstrapFuture();
+  }
+
+  Future<AuthRuntimeConfig> _loadBootstrapFuture() async {
+    final configFuture = loadAuthRuntimeConfig();
+    final delayFuture = Future<void>.delayed(_minimumBootstrapDuration);
+
+    final config = await configFuture;
+    await delayFuture;
+    return config;
   }
 
   @override
@@ -46,7 +57,12 @@ class _ArcobotBootstrapAppState extends State<ArcobotBootstrapApp> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _BootstrapShell(
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: PreloadVisual(
+                repeat: false,
+                animate: true,
+              ),
+            ),
           );
         }
 
@@ -56,7 +72,7 @@ class _ArcobotBootstrapAppState extends State<ArcobotBootstrapApp> {
               error: snapshot.error,
               onRetry: () {
                 setState(() {
-                  _bootstrapFuture = loadAuthRuntimeConfig();
+                  _bootstrapFuture = _loadBootstrapFuture();
                 });
               },
             ),
