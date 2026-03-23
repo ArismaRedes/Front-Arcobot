@@ -20,7 +20,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late final TextEditingController _classCodeController;
   late final AnimationController _ambientController;
   late final Animation<double> _floatAnimation;
-  late final Animation<double> _peekRotation;
 
   @override
   void initState() {
@@ -31,12 +30,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
     _floatAnimation = Tween<double>(begin: -8, end: 8).animate(
-      CurvedAnimation(parent: _ambientController, curve: Curves.easeInOut),
-    );
-    _peekRotation = Tween<double>(
-      begin: -0.05,
-      end: 0.035,
-    ).animate(
       CurvedAnimation(parent: _ambientController, curve: Curves.easeInOut),
     );
   }
@@ -167,7 +160,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             errorMessage: authState.errorMessage,
                             ambientController: _ambientController,
                             floatAnimation: _floatAnimation,
-                            peekRotation: _peekRotation,
                             onScan: _scanClassCode,
                             onJoin: _joinClass,
                           ),
@@ -232,7 +224,6 @@ class _LoginCard extends StatelessWidget {
     required this.errorMessage,
     required this.ambientController,
     required this.floatAnimation,
-    required this.peekRotation,
     required this.onScan,
     required this.onJoin,
   });
@@ -241,130 +232,107 @@ class _LoginCard extends StatelessWidget {
   final String? errorMessage;
   final AnimationController ambientController;
   final Animation<double> floatAnimation;
-  final Animation<double> peekRotation;
   final VoidCallback onScan;
   final VoidCallback onJoin;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFF4F3F8)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0F000000),
-                blurRadius: 32,
-                offset: Offset(0, 4),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFF4F3F8)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 32,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'ACCESO DE CLASE',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFFB0B8C9),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _CharacterStage(
+              ambientController: ambientController,
+              floatAnimation: floatAnimation,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '¡Mini Arco!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _MiniArcoPalette.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Empieza la aventura con tu clase',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _MiniArcoPalette.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3ED),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFFFD7C8),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFC95A2B),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            const SizedBox(height: 20),
+            _QrScanButton(onPressed: onScan),
+            const SizedBox(height: 18),
+            const _DividerLabel(),
+            const SizedBox(height: 18),
+            Row(
               children: [
-                const Text(
-                  'ACCESO DE CLASE',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFB0B8C9),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
+                Expanded(
+                  child: _ClassCodeField(
+                    controller: controller,
+                    onSubmitted: (_) => onJoin(),
                   ),
                 ),
-                const SizedBox(height: 10),
-                _CharacterStage(
-                  ambientController: ambientController,
-                  floatAnimation: floatAnimation,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '¡Mini Arco!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _MiniArcoPalette.textPrimary,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Empieza la aventura con tu clase',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _MiniArcoPalette.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (errorMessage != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3ED),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFFFD7C8),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFFC95A2B),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                _QrScanButton(onPressed: onScan),
-                const SizedBox(height: 18),
-                const _DividerLabel(),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ClassCodeField(
-                        controller: controller,
-                        onSubmitted: (_) => onJoin(),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _ClassJoinButton(onPressed: onJoin),
-                  ],
-                ),
+                const SizedBox(width: 10),
+                _ClassJoinButton(onPressed: onJoin),
               ],
             ),
-          ),
+          ],
         ),
-        Positioned(
-          right: -44,
-          top: -132,
-          child: AnimatedBuilder(
-            animation: peekRotation,
-            builder: (context, child) {
-              return Transform.rotate(
-                angle: peekRotation.value,
-                child: child,
-              );
-            },
-            child: Image.asset(
-              'assets/images/robot_asomado.png',
-              width: 180,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
