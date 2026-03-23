@@ -27,6 +27,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/
+    - assets/images/perrito_ventana.png
+    - assets/images/robot_asomado.png
     - assets/images/auth/
     - assets/images/brand/
     - assets/images/dashboard/

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/config/app_assets.dart';
-import 'package:front_arcobot/core/widgets/app_illustration.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
@@ -158,10 +157,8 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
                           _tryNavigate();
                         });
                       }
-                      return AppIllustration(
-                        assetPath: AppAssets.mascotSvg,
-                        height: lottieSize,
-                        fit: BoxFit.contain,
+                      return _PreloadFallbackIllustration(
+                        size: lottieSize,
                       );
                     },
                   ),
@@ -178,6 +175,41 @@ class _PreloadScreenState extends ConsumerState<PreloadScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PreloadFallbackIllustration extends StatelessWidget {
+  const _PreloadFallbackIllustration({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFE8FAF3),
+            Color(0xFFD8F1E6),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFFB9E2D2),
+          width: 2,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.smart_toy_rounded,
+        size: 96,
+        color: Color(0xFF0B6E5E),
       ),
     );
   }

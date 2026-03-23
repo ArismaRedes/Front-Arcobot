@@ -11,7 +11,19 @@ Future<AuthRuntimeConfig> loadAuthRuntimeConfig() async {
     ),
   );
 
-  final response = await dio.get<Map<String, dynamic>>('/api/v1/auth/config');
+  final response = await dio
+      .get<Map<String, dynamic>>('/api/v1/auth/config')
+      .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw DioException(
+          requestOptions: RequestOptions(
+            baseUrl: Env.apiBaseUrl,
+            path: '/api/v1/auth/config',
+          ),
+          type: DioExceptionType.connectionTimeout,
+          message: 'Timeout cargando configuracion inicial',
+        ),
+      );
   final remoteConfig = AuthRuntimeConfig.fromApiPayload(response.data);
   remoteConfig.validate();
   return remoteConfig;

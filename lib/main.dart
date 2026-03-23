@@ -10,7 +10,15 @@ import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  try {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: SystemUiOverlay.values,
+    );
+  } catch (error, stackTrace) {
+    debugPrint('No se pudo configurar el modo de pantalla: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
   Env.validate();
   runApp(const ArcobotBootstrapApp());
 }
@@ -91,35 +99,31 @@ class _BootstrapShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      onGenerateInitialRoutes: (_) => [
-        MaterialPageRoute<void>(
-          builder: (_) => Scaffold(
-            body: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFF7FBFF),
-                    Color(0xFFEAF5FF),
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: child,
-                    ),
-                  ),
+      home: Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFF7FBFF),
+                Color(0xFFEAF5FF),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: child,
                 ),
               ),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
