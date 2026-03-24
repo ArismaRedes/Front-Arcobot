@@ -200,13 +200,21 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
         await ref.read(superadminRepositoryProvider).updateUser(
               user.id,
               UpdateSuperadminUserInput(
-                name: formResult.name,
-                username: formResult.username,
-                primaryEmail: formResult.primaryEmail,
-                primaryPhone: formResult.primaryPhone,
-                avatar: formResult.avatar,
-                isSuspended: formResult.isSuspended,
-                organizationRoleNames: formResult.organizationRoleNames,
+                name: _changedStringField(formResult.name, user.name),
+                username: _changedStringField(formResult.username, user.username),
+                primaryEmail:
+                    _changedStringField(formResult.primaryEmail, user.primaryEmail),
+                primaryPhone:
+                    _changedStringField(formResult.primaryPhone, user.primaryPhone),
+                avatar: _changedStringField(formResult.avatar, user.avatar),
+                isSuspended:
+                    formResult.isSuspended == user.isSuspended
+                        ? superadminNoChange
+                        : formResult.isSuspended,
+                organizationRoleNames:
+                    _sameRoles(formResult.organizationRoleNames, user.roles)
+                        ? superadminNoChange
+                        : formResult.organizationRoleNames,
               ),
             );
       },
@@ -1777,6 +1785,35 @@ String _humanizeRole(String role) {
             '${part.substring(0, 1).toUpperCase()}${part.substring(1).toLowerCase()}',
       )
       .join(' ');
+}
+
+Object? _changedStringField(String nextValue, String? currentValue) {
+  final normalizedNext = nextValue.trim();
+  final normalizedCurrent = currentValue?.trim() ?? '';
+  if (normalizedNext == normalizedCurrent) {
+    return superadminNoChange;
+  }
+
+  return normalizedNext;
+}
+
+bool _sameRoles(List<String> left, List<String> right) {
+  final normalizedLeft = [...left.map((role) => role.trim()).where((role) => role.isNotEmpty)]
+    ..sort();
+  final normalizedRight = [...right.map((role) => role.trim()).where((role) => role.isNotEmpty)]
+    ..sort();
+
+  if (normalizedLeft.length != normalizedRight.length) {
+    return false;
+  }
+
+  for (var index = 0; index < normalizedLeft.length; index += 1) {
+    if (normalizedLeft[index] != normalizedRight[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 String _readSuperadminErrorMessage(Object error, {required String fallback}) {

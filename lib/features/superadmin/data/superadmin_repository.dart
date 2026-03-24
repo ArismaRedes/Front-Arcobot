@@ -67,22 +67,22 @@ class CreateSuperadminUserInput {
 
 class UpdateSuperadminUserInput {
   const UpdateSuperadminUserInput({
-    this.name,
-    this.username,
-    this.primaryEmail,
-    this.primaryPhone,
-    this.avatar,
-    this.isSuspended,
-    this.organizationRoleNames,
+    this.name = superadminNoChange,
+    this.username = superadminNoChange,
+    this.primaryEmail = superadminNoChange,
+    this.primaryPhone = superadminNoChange,
+    this.avatar = superadminNoChange,
+    this.isSuspended = superadminNoChange,
+    this.organizationRoleNames = superadminNoChange,
   });
 
-  final String? name;
-  final String? username;
-  final String? primaryEmail;
-  final String? primaryPhone;
-  final String? avatar;
-  final bool? isSuspended;
-  final List<String>? organizationRoleNames;
+  final Object? name;
+  final Object? username;
+  final Object? primaryEmail;
+  final Object? primaryPhone;
+  final Object? avatar;
+  final Object? isSuspended;
+  final Object? organizationRoleNames;
 }
 
 class SuperadminUsersPage {
@@ -271,14 +271,20 @@ class SuperadminRepository {
 
   Map<String, dynamic> _buildUpdatePayload(UpdateSuperadminUserInput input) {
     return <String, dynamic>{
-      'name': _clearable(input.name),
-      'username': _clearable(input.username),
-      'primaryEmail': _clearable(input.primaryEmail),
-      'primaryPhone': _clearable(input.primaryPhone),
-      'avatar': _clearable(input.avatar),
-      if (input.isSuspended != null) 'isSuspended': input.isSuspended,
-      if (input.organizationRoleNames != null)
-        'organizationRoleNames': input.organizationRoleNames,
+      if (!identical(input.name, superadminNoChange))
+        'name': _clearable(input.name as String?),
+      if (!identical(input.username, superadminNoChange))
+        'username': _clearable(input.username as String?),
+      if (!identical(input.primaryEmail, superadminNoChange))
+        'primaryEmail': _clearable(input.primaryEmail as String?),
+      if (!identical(input.primaryPhone, superadminNoChange))
+        'primaryPhone': _clearable(input.primaryPhone as String?),
+      if (!identical(input.avatar, superadminNoChange))
+        'avatar': _clearable(input.avatar as String?),
+      if (!identical(input.isSuspended, superadminNoChange))
+        'isSuspended': input.isSuspended as bool?,
+      if (!identical(input.organizationRoleNames, superadminNoChange))
+        'organizationRoleNames': input.organizationRoleNames as List<String>?,
     };
   }
 
@@ -311,3 +317,5 @@ class SuperadminRepository {
 
   bool _hasText(String? value) => value?.trim().isNotEmpty == true;
 }
+
+const Object superadminNoChange = Object();
