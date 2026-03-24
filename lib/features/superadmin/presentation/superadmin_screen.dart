@@ -166,16 +166,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       busyUserId: null,
       action: () async {
         await ref.read(superadminRepositoryProvider).createUser(
-              CreateSuperadminUserInput(
-                name: formResult.name,
-                username: formResult.username,
-                primaryEmail: formResult.primaryEmail,
-                primaryPhone: formResult.primaryPhone,
-                avatar: formResult.avatar,
-                password: formResult.password,
-                isSuspended: formResult.isSuspended,
-                organizationRoleNames: formResult.organizationRoleNames,
-              ),
+              _buildCreateUserInput(formResult),
             );
       },
       successMessage: 'Usuario creado correctamente.',
@@ -199,23 +190,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       action: () async {
         await ref.read(superadminRepositoryProvider).updateUser(
               user.id,
-              UpdateSuperadminUserInput(
-                name: _changedStringField(formResult.name, user.name),
-                username: _changedStringField(formResult.username, user.username),
-                primaryEmail:
-                    _changedStringField(formResult.primaryEmail, user.primaryEmail),
-                primaryPhone:
-                    _changedStringField(formResult.primaryPhone, user.primaryPhone),
-                avatar: _changedStringField(formResult.avatar, user.avatar),
-                isSuspended:
-                    formResult.isSuspended == user.isSuspended
-                        ? superadminNoChange
-                        : formResult.isSuspended,
-                organizationRoleNames:
-                    _sameRoles(formResult.organizationRoleNames, user.roles)
-                        ? superadminNoChange
-                        : formResult.organizationRoleNames,
-              ),
+              _buildUpdateUserInput(formResult, user),
             );
       },
       successMessage: 'Usuario actualizado correctamente.',
@@ -294,6 +269,42 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
         content: Text(message),
         backgroundColor: isError ? const Color(0xFF9A4F23) : null,
       ),
+    );
+  }
+
+  CreateSuperadminUserInput _buildCreateUserInput(
+    SuperadminUserFormResult formResult,
+  ) {
+    return CreateSuperadminUserInput(
+      name: formResult.name,
+      username: formResult.username,
+      primaryEmail: formResult.primaryEmail,
+      primaryPhone: formResult.primaryPhone,
+      avatar: formResult.avatar,
+      password: formResult.password,
+      isSuspended: formResult.isSuspended,
+      organizationRoleNames: formResult.organizationRoleNames,
+    );
+  }
+
+  UpdateSuperadminUserInput _buildUpdateUserInput(
+    SuperadminUserFormResult formResult,
+    SuperadminUser user,
+  ) {
+    return UpdateSuperadminUserInput(
+      name: _changedStringField(formResult.name, user.name),
+      username: _changedStringField(formResult.username, user.username),
+      primaryEmail: _changedStringField(formResult.primaryEmail, user.primaryEmail),
+      primaryPhone: _changedStringField(formResult.primaryPhone, user.primaryPhone),
+      avatar: _changedStringField(formResult.avatar, user.avatar),
+      isSuspended:
+          formResult.isSuspended == user.isSuspended
+              ? superadminNoChange
+              : formResult.isSuspended,
+      organizationRoleNames:
+          _sameRoles(formResult.organizationRoleNames, user.roles)
+              ? superadminNoChange
+              : formResult.organizationRoleNames,
     );
   }
 
