@@ -24,7 +24,6 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   int _page = 1;
   bool _isMutating = false;
   String? _busyUserId;
-  String? _lastUsersDebugKey;
 
   static const int _pageSize = 20;
 
@@ -57,19 +56,6 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
     final compact = width < 760;
     final activeRole = _resolveSessionRole(authState.roles);
     final currentUserId = authState.subject;
-
-    usersAsync.whenData((page) {
-      final debugKey =
-          '${page.page}:${page.pageSize}:${page.total}:${page.users.map((u) => u.id).join(',')}';
-      if (_lastUsersDebugKey == debugKey) return;
-      _lastUsersDebugKey = debugKey;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        debugPrint(
-          'Superadmin users loaded (${page.users.length}): '
-          '${page.users.map((u) => {'id': u.id, 'name': u.name}).toList(growable: false)}',
-        );
-      });
-    });
 
     return Scaffold(
       backgroundColor: _SuperadminPalette.pageBackground,
@@ -151,6 +137,8 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   }
 
   Future<void> _openCreateUserDialog() async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     final formResult = await showSuperadminUserFormDialog(
       context,
       mode: SuperadminUserFormMode.create,
@@ -169,6 +157,8 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   }
 
   Future<void> _openEditUserDialog(SuperadminUser user) async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     final formResult = await showSuperadminUserFormDialog(
       context,
       mode: SuperadminUserFormMode.edit,
@@ -381,136 +371,6 @@ class _TopBar extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-class _TopBarBrand extends StatelessWidget {
-  const _TopBarBrand();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Logo mark with gradient
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF5DDDB0), _SuperadminPalette.brandGreen],
-            ),
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x404ECBA0),
-                blurRadius: 10,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: const Text(
-            'A',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'ArcoBot',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              TextSpan(
-                text: ' / superadmin',
-                style: TextStyle(
-                  color: _SuperadminPalette.topBarMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TopBarActions extends StatelessWidget {
-  const _TopBarActions({required this.roleLabel, required this.onSignOut});
-
-  final String roleLabel;
-  final VoidCallback onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E3A52),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFF2A4D6A), width: 0.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: _SuperadminPalette.brandGreen,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                roleLabel.toUpperCase(),
-                style: const TextStyle(
-                  color: _SuperadminPalette.brandGreen,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.9,
-                ),
-              ),
-            ],
-          ),
-        ),
-        OutlinedButton.icon(
-          onPressed: onSignOut,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 34),
-            foregroundColor: _SuperadminPalette.topBarMuted,
-            side: const BorderSide(color: _SuperadminPalette.topBarButtonBorder),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-          ),
-          icon: const Icon(Icons.logout_rounded, size: 14),
-          label: const Text(
-            'Cerrar sesion',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -958,7 +818,6 @@ class _SearchField extends StatefulWidget {
 
 class _SearchFieldState extends State<_SearchField> {
   late final FocusNode _focusNode;
-  bool _hovered = false;
 
   @override
   void initState() {
@@ -977,73 +836,71 @@ class _SearchFieldState extends State<_SearchField> {
   @override
   Widget build(BuildContext context) {
     final focused = _focusNode.hasFocus;
-    final hasBorder = _hovered || focused;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        height: 42,
-        decoration: BoxDecoration(
-          color: focused ? Colors.white : _SuperadminPalette.pageBackground,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: focused
-                ? _SuperadminPalette.textPrimary.withOpacity(0.25)
-                : hasBorder
-                    ? _SuperadminPalette.searchBorder
-                    : Colors.transparent,
-            width: focused ? 1.0 : 0.5,
-          ),
-          boxShadow: focused
-              ? [
-                  BoxShadow(
-                    color: _SuperadminPalette.textPrimary.withOpacity(0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      height: 42,
+      decoration: BoxDecoration(
+        color: focused ? Colors.white : _SuperadminPalette.pageBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              focused
+                  ? _SuperadminPalette.textPrimary.withValues(alpha: 0.25)
+                  : _SuperadminPalette.searchBorder,
+          width: focused ? 1.0 : 0.5,
         ),
-        child: TextField(
-          controller: widget.controller,
-          focusNode: _focusNode,
-          onChanged: widget.onChanged,
-          style: const TextStyle(
-            color: _SuperadminPalette.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            hintStyle: const TextStyle(
-              color: _SuperadminPalette.topBarMuted,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-            prefixIcon: const Icon(
-              Icons.search_rounded,
-              color: _SuperadminPalette.topBarMuted,
-              size: 18,
-            ),
-            suffixIcon: widget.controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      size: 16,
-                      color: _SuperadminPalette.footerText,
+        boxShadow:
+            focused
+                ? [
+                    BoxShadow(
+                      color: _SuperadminPalette.textPrimary.withValues(
+                        alpha: 0.06,
+                      ),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    onPressed: () {
-                      widget.controller.clear();
-                      widget.onChanged('');
-                    },
-                    padding: EdgeInsets.zero,
-                    splashRadius: 14,
-                  )
+                  ]
                 : null,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: _focusNode,
+        onChanged: widget.onChanged,
+        style: const TextStyle(
+          color: _SuperadminPalette.textPrimary,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          hintText: widget.hintText,
+          hintStyle: const TextStyle(
+            color: _SuperadminPalette.topBarMuted,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
           ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: _SuperadminPalette.topBarMuted,
+            size: 18,
+          ),
+          suffixIcon:
+              widget.controller.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: _SuperadminPalette.footerText,
+                      ),
+                      onPressed: () {
+                        widget.controller.clear();
+                        widget.onChanged('');
+                      },
+                      padding: EdgeInsets.zero,
+                      splashRadius: 14,
+                    )
+                  : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
@@ -1458,13 +1315,13 @@ class _UserIdentity extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                badgeStyle.foreground.withOpacity(0.15),
-                badgeStyle.foreground.withOpacity(0.28),
+                badgeStyle.foreground.withValues(alpha: 0.15),
+                badgeStyle.foreground.withValues(alpha: 0.28),
               ],
             ),
             shape: BoxShape.circle,
             border: Border.all(
-              color: badgeStyle.foreground.withOpacity(0.2),
+              color: badgeStyle.foreground.withValues(alpha: 0.2),
               width: 1,
             ),
           ),
@@ -2034,8 +1891,6 @@ class _SuperadminPalette {
 
   static const pageBackground = Color(0xFFF5F3EE);
   static const topBarBackground = Color(0xFF1A2E44);
-  static const topBarChipBackground = Color(0xFF253C55);
-  static const topBarButtonBorder = Color(0xFF2E4A63);
   static const topBarMuted = Color(0xFF7A9BBE);
   static const brandGreen = Color(0xFF4ECBA0);
   static const cardBorder = Color(0xFFE8E5E0);
