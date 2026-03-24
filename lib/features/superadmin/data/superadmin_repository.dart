@@ -205,7 +205,13 @@ class SuperadminRepository {
   }
 
   Future<void> deleteUser(String userId) {
-    return _dio.delete<void>('/api/v1/superadmin/users/$userId');
+    return _dio.delete<void>(
+      '/api/v1/superadmin/users/$userId',
+      data: const <String, dynamic>{},
+      options: Options(
+        contentType: Headers.jsonContentType,
+      ),
+    );
   }
 
   SuperadminUser _parseUser(Map<String, dynamic> data) {
