@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +25,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   bool _isMutating = false;
   String? _busyUserId;
   String? _lastUsersDebugKey;
+
   static const int _pageSize = 20;
 
   SuperadminUsersQuery get _query => SuperadminUsersQuery(
@@ -60,22 +60,13 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
 
     usersAsync.whenData((page) {
       final debugKey =
-          '${page.page}:${page.pageSize}:${page.total}:${page.users.map((user) => user.id).join(',')}';
-      if (_lastUsersDebugKey == debugKey) {
-        return;
-      }
-
+          '${page.page}:${page.pageSize}:${page.total}:${page.users.map((u) => u.id).join(',')}';
+      if (_lastUsersDebugKey == debugKey) return;
       _lastUsersDebugKey = debugKey;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         debugPrint(
           'Superadmin users loaded (${page.users.length}): '
-          '${page.users.map((user) => {
-                'id': user.id,
-                'name': user.name,
-                'username': user.username,
-                'primaryEmail': user.primaryEmail,
-                'roles': user.roles,
-              }).toList(growable: false)}',
+          '${page.users.map((u) => {'id': u.id, 'name': u.name}).toList(growable: false)}',
         );
       });
     });
@@ -89,6 +80,15 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
               compact: compact,
               roleLabel: activeRole,
               onSignOut: _confirmSignOut,
+            ),
+            // Slim loading indicator when mutating
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: _isMutating ? 2 : 0,
+              child: LinearProgressIndicator(
+                backgroundColor: _SuperadminPalette.topBarBackground,
+                color: _SuperadminPalette.brandGreen,
+              ),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -138,9 +138,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   void _handleSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _search = value.trim();
         _page = 1;
@@ -157,11 +155,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       context,
       mode: SuperadminUserFormMode.create,
     );
-
-    if (formResult == null || !mounted) {
-      return;
-    }
-
+    if (formResult == null || !mounted) return;
     await _runUserMutation(
       busyUserId: null,
       action: () async {
@@ -180,11 +174,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       mode: SuperadminUserFormMode.edit,
       initialUser: user,
     );
-
-    if (formResult == null || !mounted) {
-      return;
-    }
-
+    if (formResult == null || !mounted) return;
     await _runUserMutation(
       busyUserId: user.id,
       action: () async {
@@ -206,7 +196,6 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       );
       return;
     }
-
     final shouldDelete = await showAppConfirmationDialog(
       context,
       title: 'Eliminar usuario',
@@ -214,11 +203,7 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
           'Se eliminara ${user.displayLabel} en Logto. Esta accion no se puede deshacer.',
       confirmLabel: 'Eliminar',
     );
-
-    if (shouldDelete != true || !mounted) {
-      return;
-    }
-
+    if (shouldDelete != true || !mounted) return;
     await _runUserMutation(
       busyUserId: user.id,
       action: () => ref.read(superadminRepositoryProvider).deleteUser(user.id),
@@ -237,18 +222,13 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       _isMutating = true;
       _busyUserId = busyUserId;
     });
-
     try {
       await action();
       await _refreshUsers();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _showMessage(successMessage);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _showMessage(
         _readSuperadminErrorMessage(error, fallback: errorFallback),
         isError: true,
@@ -266,47 +246,54 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? const Color(0xFF9A4F23) : null,
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor:
+            isError ? const Color(0xFF9A4F23) : _SuperadminPalette.textPrimary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
-  CreateSuperadminUserInput _buildCreateUserInput(
-    SuperadminUserFormResult formResult,
-  ) {
-    return CreateSuperadminUserInput(
-      name: formResult.name,
-      username: formResult.username,
-      primaryEmail: formResult.primaryEmail,
-      primaryPhone: formResult.primaryPhone,
-      avatar: formResult.avatar,
-      password: formResult.password,
-      isSuspended: formResult.isSuspended,
-      organizationRoleNames: formResult.organizationRoleNames,
-    );
-  }
+  CreateSuperadminUserInput _buildCreateUserInput(SuperadminUserFormResult r) =>
+      CreateSuperadminUserInput(
+        name: r.name,
+        username: r.username,
+        primaryEmail: r.primaryEmail,
+        primaryPhone: r.primaryPhone,
+        avatar: r.avatar,
+        password: r.password,
+        isSuspended: r.isSuspended,
+        organizationRoleNames: r.organizationRoleNames,
+      );
 
   UpdateSuperadminUserInput _buildUpdateUserInput(
-    SuperadminUserFormResult formResult,
+    SuperadminUserFormResult r,
     SuperadminUser user,
-  ) {
-    return UpdateSuperadminUserInput(
-      name: _changedStringField(formResult.name, user.name),
-      username: _changedStringField(formResult.username, user.username),
-      primaryEmail: _changedStringField(formResult.primaryEmail, user.primaryEmail),
-      primaryPhone: _changedStringField(formResult.primaryPhone, user.primaryPhone),
-      avatar: _changedStringField(formResult.avatar, user.avatar),
-      isSuspended:
-          formResult.isSuspended == user.isSuspended
-              ? superadminNoChange
-              : formResult.isSuspended,
-      organizationRoleNames:
-          _sameRoles(formResult.organizationRoleNames, user.roles)
-              ? superadminNoChange
-              : formResult.organizationRoleNames,
-    );
-  }
+  ) =>
+      UpdateSuperadminUserInput(
+        name: _changedStringField(r.name, user.name),
+        username: _changedStringField(r.username, user.username),
+        primaryEmail: _changedStringField(r.primaryEmail, user.primaryEmail),
+        primaryPhone: _changedStringField(r.primaryPhone, user.primaryPhone),
+        avatar: _changedStringField(r.avatar, user.avatar),
+        isSuspended:
+            r.isSuspended == user.isSuspended ? superadminNoChange : r.isSuspended,
+        organizationRoleNames: _sameRoles(r.organizationRoleNames, user.roles)
+            ? superadminNoChange
+            : r.organizationRoleNames,
+      );
 
   Future<void> _confirmSignOut() async {
     final shouldSignOut = await showAppConfirmationDialog(
@@ -315,65 +302,88 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
       message: 'Estas seguro de cerrar sesion?',
       confirmLabel: 'Cerrar sesion',
     );
-
     if (shouldSignOut == true && mounted) {
       await ref.read(authControllerProvider.notifier).signOut();
     }
   }
 }
 
+// ─── TopBar ──────────────────────────────────────────────────────────────────
+
 class _TopBar extends StatelessWidget {
+  final bool compact;
+  final String roleLabel;
+  final VoidCallback onSignOut;
+
   const _TopBar({
     required this.compact,
     required this.roleLabel,
     required this.onSignOut,
   });
 
-  final bool compact;
-  final String roleLabel;
-  final VoidCallback onSignOut;
-
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: _SuperadminPalette.topBarBackground,
+      height: 64,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0D1B2A), // El azul oscuro profundo que tenías
+        border: Border(bottom: BorderSide(color: Colors.white10, width: 1)),
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1240),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 56),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TopBarBrand(),
-                      const SizedBox(height: 12),
-                      _TopBarActions(
-                        roleLabel: roleLabel,
-                        onSignOut: onSignOut,
-                      ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      const Expanded(child: _TopBarBrand()),
-                      const SizedBox(width: 16),
-                      _TopBarActions(
-                        roleLabel: roleLabel,
-                        onSignOut: onSignOut,
-                      ),
-                    ],
-                  ),
+      child: Row(
+        children: [
+          // Logo / Título
+          const Icon(Icons.shield_outlined, color: _SuperadminPalette.brandGreen, size: 28),
+          const SizedBox(width: 12),
+          const Text(
+            'ARCOBOT',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              letterSpacing: 1.2,
+            ),
           ),
-        ),
+          if (!compact) ...[
+            const SizedBox(width: 16),
+            Container(height: 20, width: 1, color: Colors.white24),
+            const SizedBox(width: 16),
+            const Text(
+              'Panel de Control',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+          ],
+          const Spacer(),
+          // Perfil y Salida
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                roleLabel.toUpperCase(),
+                style: const TextStyle(
+                  color: _SuperadminPalette.brandGreen,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Text(
+                'Administrador',
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            onPressed: onSignOut,
+            icon: const Icon(Icons.logout_rounded, color: Colors.white70, size: 22),
+            tooltip: 'Cerrar Sesión',
+          ),
+        ],
       ),
     );
   }
 }
-
 class _TopBarBrand extends StatelessWidget {
   const _TopBarBrand();
 
@@ -382,20 +392,33 @@ class _TopBarBrand extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Logo mark with gradient
         Container(
-          width: 28,
-          height: 28,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
-            color: _SuperadminPalette.brandGreen,
-            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF5DDDB0), _SuperadminPalette.brandGreen],
+            ),
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x404ECBA0),
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
           ),
           alignment: Alignment.center,
           child: const Text(
             'A',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              height: 1,
             ),
           ),
         ),
@@ -409,6 +432,7 @@ class _TopBarBrand extends StatelessWidget {
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
                 ),
               ),
               TextSpan(
@@ -416,7 +440,7 @@ class _TopBarBrand extends StatelessWidget {
                 style: TextStyle(
                   color: _SuperadminPalette.topBarMuted,
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
@@ -428,10 +452,7 @@ class _TopBarBrand extends StatelessWidget {
 }
 
 class _TopBarActions extends StatelessWidget {
-  const _TopBarActions({
-    required this.roleLabel,
-    required this.onSignOut,
-  });
+  const _TopBarActions({required this.roleLabel, required this.onSignOut});
 
   final String roleLabel;
   final VoidCallback onSignOut;
@@ -444,43 +465,57 @@ class _TopBarActions extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: _SuperadminPalette.topBarChipBackground,
+            color: const Color(0xFF1E3A52),
             borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFF2A4D6A), width: 0.5),
           ),
-          child: Text(
-            roleLabel.toUpperCase(),
-            style: const TextStyle(
-              color: _SuperadminPalette.brandGreen,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.9,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: _SuperadminPalette.brandGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                roleLabel.toUpperCase(),
+                style: const TextStyle(
+                  color: _SuperadminPalette.brandGreen,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.9,
+                ),
+              ),
+            ],
           ),
         ),
-        OutlinedButton(
+        OutlinedButton.icon(
           onPressed: onSignOut,
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size(124, 34),
+            minimumSize: const Size(0, 34),
             foregroundColor: _SuperadminPalette.topBarMuted,
-            side: const BorderSide(
-              color: _SuperadminPalette.topBarButtonBorder,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            side: const BorderSide(color: _SuperadminPalette.topBarButtonBorder),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(horizontal: 14),
           ),
-          child: const Text(
+          icon: const Icon(Icons.logout_rounded, size: 14),
+          label: const Text(
             'Cerrar sesion',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
       ],
     );
   }
 }
+
+// ─── Stats Grid ──────────────────────────────────────────────────────────────
 
 class _StatsGrid extends StatelessWidget {
   const _StatsGrid({
@@ -497,35 +532,42 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = usersAsync.maybeWhen(
-      data: (page) => page.total,
-      orElse: () => null,
-    );
-    final visible = usersAsync.maybeWhen(
-      data: (page) => page.users.length,
-      orElse: () => null,
-    );
-    final currentPage = usersAsync.maybeWhen(
-      data: (page) => page.page,
-      orElse: () => null,
-    );
+    final total = usersAsync.maybeWhen(data: (p) => p.total, orElse: () => null);
+    final visible = usersAsync.maybeWhen(data: (p) => p.users.length, orElse: () => null);
+    final currentPage = usersAsync.maybeWhen(data: (p) => p.page, orElse: () => null);
 
     final cards = [
       _StatCard(
+        icon: Icons.people_alt_rounded,
+        iconColor: const Color(0xFF185FA5),
+        iconBackground: const Color(0xFFE6F1FB),
         label: 'Usuarios visibles',
         value: visible?.toString() ?? '--',
+        accentColor: const Color(0xFF185FA5),
       ),
       _StatCard(
+        icon: Icons.groups_rounded,
+        iconColor: _SuperadminPalette.avatarForeground,
+        iconBackground: _SuperadminPalette.avatarBackground,
         label: 'Total registrado',
         value: total?.toString() ?? '--',
+        accentColor: _SuperadminPalette.brandGreen,
       ),
       _StatCard(
+        icon: Icons.layers_rounded,
+        iconColor: const Color(0xFF854F0B),
+        iconBackground: const Color(0xFFFAEEDA),
         label: 'Pagina actual',
         value: currentPage?.toString() ?? '--',
+        accentColor: const Color(0xFF854F0B),
       ),
       _StatCard(
+        icon: search.isEmpty ? Icons.shield_rounded : Icons.search_rounded,
+        iconColor: const Color(0xFF1A7A4A),
+        iconBackground: const Color(0xFFE8F7EF),
         label: search.isEmpty ? 'Rol activo' : 'Filtro activo',
         value: search.isEmpty ? _humanizeRole(activeRole) : search,
+        accentColor: const Color(0xFF1A7A4A),
       ),
     ];
 
@@ -535,17 +577,11 @@ class _StatsGrid extends StatelessWidget {
         const spacing = 12.0;
         final itemWidth =
             (constraints.maxWidth - (spacing * (columns - 1))) / columns;
-
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
           children: cards
-              .map(
-                (card) => SizedBox(
-                  width: itemWidth,
-                  child: card,
-                ),
-              )
+              .map((c) => SizedBox(width: itemWidth, child: c))
               .toList(growable: false),
         );
       },
@@ -555,62 +591,97 @@ class _StatsGrid extends StatelessWidget {
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackground,
     required this.label,
     required this.value,
+    required this.accentColor,
   });
 
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBackground;
   final String label;
   final String value;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _SuperadminPalette.cardBorder,
-          width: 0.5,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _SuperadminPalette.cardBorder, width: 0.5),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x140F172A),
-            blurRadius: 14,
-            offset: Offset(0, 4),
+            color: Color(0x0C0F172A),
+            blurRadius: 12,
+            offset: Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _SuperadminPalette.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              height: 1.05,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Accent strip on top
+            Container(height: 3, color: accentColor),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: iconBackground,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(icon, color: iconColor, size: 17),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _SuperadminPalette.textPrimary,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _SuperadminPalette.footerText,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _SuperadminPalette.footerText,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+
+// ─── Users Section ───────────────────────────────────────────────────────────
 
 class _UsersSection extends StatelessWidget {
   const _UsersSection({
@@ -652,53 +723,60 @@ class _UsersSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _SuperadminPalette.cardBorder,
-          width: 0.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _UsersToolbar(
-            compact: compact,
-            controller: controller,
-            search: search,
-            organizationId: organizationId,
-            isMutating: isMutating,
-            onChanged: onChanged,
-            onRefresh: onRefresh,
-            onCreate: onCreate,
-          ),
-          const Divider(
-            height: 1,
-            thickness: 0.5,
-            color: _SuperadminPalette.cardBorder,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-            child: usersAsync.when(
-              data: (page) => _UsersPanel(
-                compact: compact,
-                page: page,
-                currentUserId: currentUserId,
-                busyUserId: busyUserId,
-                isMutating: isMutating,
-                onEdit: onEdit,
-                onDelete: onDelete,
-                onPrevious: page.page > 1 ? onPrevious : null,
-                onNext: page.hasNextPage ? onNext : null,
-              ),
-              loading: () => const _UsersLoading(),
-              error: (error, _) => _UsersError(
-                message: 'No se pudo cargar la lista de usuarios.',
-                details: error.toString(),
-                onRetry: onRefresh,
-              ),
-            ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _SuperadminPalette.cardBorder, width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 16,
+            offset: Offset(0, 4),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _UsersToolbar(
+              compact: compact,
+              controller: controller,
+              search: search,
+              organizationId: organizationId,
+              isMutating: isMutating,
+              onChanged: onChanged,
+              onRefresh: onRefresh,
+              onCreate: onCreate,
+            ),
+            const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: _SuperadminPalette.cardBorder,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
+              child: usersAsync.when(
+                data: (page) => _UsersPanel(
+                  compact: compact,
+                  page: page,
+                  currentUserId: currentUserId,
+                  busyUserId: busyUserId,
+                  isMutating: isMutating,
+                  onEdit: onEdit,
+                  onDelete: onDelete,
+                  onPrevious: page.page > 1 ? onPrevious : null,
+                  onNext: page.hasNextPage ? onNext : null,
+                ),
+                loading: () => const _UsersLoading(),
+                error: (error, _) => _UsersError(
+                  message: 'No se pudo cargar la lista de usuarios.',
+                  details: error.toString(),
+                  onRetry: onRefresh,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -736,8 +814,9 @@ class _UsersToolbar extends StatelessWidget {
           'Usuarios autorizados',
           style: TextStyle(
             color: _SuperadminPalette.textPrimary,
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
           ),
         ),
         _OrganizationChip(organizationId: organizationId),
@@ -752,7 +831,7 @@ class _UsersToolbar extends StatelessWidget {
           : 'Filtrando por "$search"',
     );
 
-    final refreshButton = OutlinedButton(
+    final refreshButton = OutlinedButton.icon(
       onPressed: isMutating ? null : onRefresh,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(118, 42),
@@ -760,7 +839,8 @@ class _UsersToolbar extends StatelessWidget {
         side: const BorderSide(color: _SuperadminPalette.cardBorder),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      child: const Text(
+      icon: const Icon(Icons.refresh_rounded, size: 16),
+      label: const Text(
         'Actualizar',
         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
@@ -773,7 +853,7 @@ class _UsersToolbar extends StatelessWidget {
         backgroundColor: _SuperadminPalette.textPrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+      icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
       label: const Text(
         'Crear usuario',
         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -824,29 +904,25 @@ class _OrganizationChip extends StatelessWidget {
     final label = organizationId?.trim().isNotEmpty == true
         ? organizationId!
         : 'sin org id';
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAF7),
+        color: const Color(0xFFF5F8F5),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: _SuperadminPalette.cardBorder,
-          width: 0.5,
-        ),
+        border: Border.all(color: _SuperadminPalette.cardBorder, width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             decoration: const BoxDecoration(
               color: _SuperadminPalette.brandGreen,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 240),
             child: Text(
@@ -854,7 +930,7 @@ class _OrganizationChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: _SuperadminPalette.textPrimary,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -900,8 +976,8 @@ class _SearchFieldState extends State<_SearchField> {
 
   @override
   Widget build(BuildContext context) {
-    final hasBorder = _hovered || _focusNode.hasFocus;
-
+    final focused = _focusNode.hasFocus;
+    final hasBorder = _hovered || focused;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -909,14 +985,25 @@ class _SearchFieldState extends State<_SearchField> {
         duration: const Duration(milliseconds: 160),
         height: 42,
         decoration: BoxDecoration(
-          color: _SuperadminPalette.pageBackground,
+          color: focused ? Colors.white : _SuperadminPalette.pageBackground,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: hasBorder
-                ? _SuperadminPalette.searchBorder
-                : Colors.transparent,
-            width: 0.5,
+            color: focused
+                ? _SuperadminPalette.textPrimary.withOpacity(0.25)
+                : hasBorder
+                    ? _SuperadminPalette.searchBorder
+                    : Colors.transparent,
+            width: focused ? 1.0 : 0.5,
           ),
+          boxShadow: focused
+              ? [
+                  BoxShadow(
+                    color: _SuperadminPalette.textPrimary.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: TextField(
           controller: widget.controller,
@@ -932,12 +1019,28 @@ class _SearchFieldState extends State<_SearchField> {
             hintStyle: const TextStyle(
               color: _SuperadminPalette.topBarMuted,
               fontSize: 13,
+              fontWeight: FontWeight.w400,
             ),
             prefixIcon: const Icon(
               Icons.search_rounded,
               color: _SuperadminPalette.topBarMuted,
               size: 18,
             ),
+            suffixIcon: widget.controller.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: _SuperadminPalette.footerText,
+                    ),
+                    onPressed: () {
+                      widget.controller.clear();
+                      widget.onChanged('');
+                    },
+                    padding: EdgeInsets.zero,
+                    splashRadius: 14,
+                  )
+                : null,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
           ),
@@ -947,11 +1050,11 @@ class _SearchFieldState extends State<_SearchField> {
   }
 
   void _handleFocusChange() {
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 }
+
+// ─── Users Panel ─────────────────────────────────────────────────────────────
 
 class _UsersPanel extends StatelessWidget {
   const _UsersPanel({
@@ -978,10 +1081,7 @@ class _UsersPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (page.users.isEmpty) {
-      return const _UsersEmpty();
-    }
-
+    if (page.users.isEmpty) return const _UsersEmpty();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1056,7 +1156,6 @@ class _DesktopUsersTable extends StatelessWidget {
             ...List.generate(users.length, (index) {
               final isLast = index == users.length - 1;
               final user = users[index];
-
               return Column(
                 children: [
                   _TableRow(
@@ -1087,9 +1186,10 @@ class _TableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(0, 18, 0, 16),
-      child: Row(
+    return Container(
+      color: const Color(0xFFFAF9F7),
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+      child: const Row(
         children: [
           SizedBox(width: _userColumnWidth, child: _HeaderText('USUARIO')),
           SizedBox(width: _emailColumnWidth, child: _HeaderText('CORREO')),
@@ -1113,15 +1213,15 @@ class _HeaderText extends StatelessWidget {
       label,
       style: const TextStyle(
         color: _SuperadminPalette.tableHeaderText,
-        fontSize: 11,
+        fontSize: 10.5,
         fontWeight: FontWeight.w700,
-        letterSpacing: 1,
+        letterSpacing: 1.1,
       ),
     );
   }
 }
 
-class _TableRow extends StatelessWidget {
+class _TableRow extends StatefulWidget {
   const _TableRow({
     required this.user,
     required this.canDelete,
@@ -1137,59 +1237,75 @@ class _TableRow extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
+  State<_TableRow> createState() => _TableRowState();
+}
+
+class _TableRowState extends State<_TableRow> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(width: _userColumnWidth, child: _UserIdentity(user: user)),
-          SizedBox(
-            width: _emailColumnWidth,
-            child: Text(
-              user.primaryEmail ?? 'sin correo principal',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _SuperadminPalette.emailText,
-                fontSize: 12,
-                fontFamily: 'monospace',
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        color: _hovered ? const Color(0xFFFAF9F7) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: _userColumnWidth,
+              child: _UserIdentity(user: widget.user),
+            ),
+            SizedBox(
+              width: _emailColumnWidth,
+              child: Text(
+                widget.user.primaryEmail ?? 'sin correo principal',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _SuperadminPalette.emailText,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
-          ),
-          SizedBox(
-            width: _roleColumnWidth,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _buildRoleBadges(user.roles),
-            ),
-          ),
-          SizedBox(
-            width: _idColumnWidth,
-            child: Text(
-              user.id,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _SuperadminPalette.idText,
-                fontSize: 11,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w600,
+            SizedBox(
+              width: _roleColumnWidth,
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _buildRoleBadges(widget.user.roles),
               ),
             ),
-          ),
-          SizedBox(
-            width: _actionsColumnWidth,
-            child: _UserRowActions(
-              compact: false,
-              canDelete: canDelete,
-              isBusy: isBusy,
-              onEdit: onEdit,
-              onDelete: onDelete,
+            SizedBox(
+              width: _idColumnWidth,
+              child: Text(
+                widget.user.id,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _SuperadminPalette.idText,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+            SizedBox(
+              width: _actionsColumnWidth,
+              child: _UserRowActions(
+                compact: false,
+                canDelete: widget.canDelete,
+                isBusy: widget.isBusy,
+                onEdit: widget.onEdit,
+                onDelete: widget.onDelete,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1215,7 +1331,7 @@ class _MobileUsersList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         children: users
             .map(
@@ -1253,61 +1369,82 @@ class _MobileUserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final roleColor = _roleBadgeStyle(
+      user.roles.isNotEmpty ? user.roles.first : '',
+    ).foreground;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFBFAF7),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _SuperadminPalette.cardBorder,
-          width: 0.5,
+        border: Border(
+          left: BorderSide(color: roleColor, width: 3),
+          top: const BorderSide(color: _SuperadminPalette.cardBorder, width: 0.5),
+          right: const BorderSide(color: _SuperadminPalette.cardBorder, width: 0.5),
+          bottom: const BorderSide(color: _SuperadminPalette.cardBorder, width: 0.5),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _UserIdentity(user: user),
-          const SizedBox(height: 14),
-          const _HeaderText('CORREO'),
-          const SizedBox(height: 6),
-          Text(
-            user.primaryEmail ?? 'sin correo principal',
-            style: const TextStyle(
-              color: _SuperadminPalette.emailText,
-              fontSize: 12,
-              fontFamily: 'monospace',
-            ),
-          ),
-          const SizedBox(height: 12),
-          const _HeaderText('ROL'),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _buildRoleBadges(user.roles),
-          ),
-          const SizedBox(height: 12),
-          const _HeaderText('ID'),
-          const SizedBox(height: 6),
-          Text(
-            user.id,
-            style: const TextStyle(
-              color: _SuperadminPalette.idText,
-              fontSize: 11,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _UserRowActions(
-            compact: true,
-            canDelete: canDelete,
-            isBusy: isBusy,
-            onEdit: onEdit,
-            onDelete: onDelete,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _UserIdentity(user: user),
+            const SizedBox(height: 14),
+            const _HeaderText('CORREO'),
+            const SizedBox(height: 5),
+            Text(
+              user.primaryEmail ?? 'sin correo principal',
+              style: const TextStyle(
+                color: _SuperadminPalette.emailText,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+            ),
+            const SizedBox(height: 12),
+            const _HeaderText('ROL'),
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _buildRoleBadges(user.roles),
+            ),
+            const SizedBox(height: 12),
+            const _HeaderText('ID'),
+            const SizedBox(height: 5),
+            Text(
+              user.id,
+              style: const TextStyle(
+                color: _SuperadminPalette.idText,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: _SuperadminPalette.cardBorder,
+            ),
+            const SizedBox(height: 12),
+            _UserRowActions(
+              compact: true,
+              canDelete: canDelete,
+              isBusy: isBusy,
+              onEdit: onEdit,
+              onDelete: onDelete,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1320,22 +1457,37 @@ class _UserIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Derive a consistent gradient per user based on their id character
+    final roleForColor = user.roles.isNotEmpty ? user.roles.first : '';
+    final badgeStyle = _roleBadgeStyle(roleForColor);
+
     return Row(
       children: [
         Container(
-          width: 48,
-          height: 48,
-          decoration: const BoxDecoration(
-            color: _SuperadminPalette.avatarBackground,
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                badgeStyle.foreground.withOpacity(0.15),
+                badgeStyle.foreground.withOpacity(0.28),
+              ],
+            ),
             shape: BoxShape.circle,
+            border: Border.all(
+              color: badgeStyle.foreground.withOpacity(0.2),
+              width: 1,
+            ),
           ),
           alignment: Alignment.center,
           child: Text(
             _userInitials(user),
-            style: const TextStyle(
-              color: _SuperadminPalette.avatarForeground,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+            style: TextStyle(
+              color: badgeStyle.foreground,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -1353,8 +1505,9 @@ class _UserIdentity extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _SuperadminPalette.textPrimary,
-                        fontSize: 14,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
                       ),
                     ),
                   ),
@@ -1362,12 +1515,16 @@ class _UserIdentity extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 7,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFDEBDC),
                         borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: const Color(0xFFF0C8A8),
+                          width: 0.5,
+                        ),
                       ),
                       child: const Text(
                         'SUSPENDIDO',
@@ -1382,7 +1539,7 @@ class _UserIdentity extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
                 user.username == null ? '@sin_handle' : '@${user.username}',
                 maxLines: 1,
@@ -1423,21 +1580,19 @@ class _UserRowActions extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: _SuperadminPalette.textPrimary,
         side: const BorderSide(color: _SuperadminPalette.cardBorder),
-        minimumSize: Size(compact ? 0 : 86, 34),
+        minimumSize: Size(compact ? 0 : 82, 34),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       icon: isBusy
           ? const SizedBox(
-              width: 14,
-              height: 14,
+              width: 13,
+              height: 13,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.edit_outlined, size: 16),
-      label: const Text(
-        'Editar',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
+          : const Icon(Icons.edit_outlined, size: 15),
+      label: const Text('Editar',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     );
 
     final deleteButton = OutlinedButton.icon(
@@ -1445,15 +1600,14 @@ class _UserRowActions extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: const Color(0xFF9A4F23),
         side: const BorderSide(color: Color(0xFFF0D8C4)),
-        minimumSize: Size(compact ? 0 : 92, 34),
+        minimumSize: Size(compact ? 0 : 88, 34),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: const Color(0xFFFFF7F2),
       ),
-      icon: const Icon(Icons.delete_outline_rounded, size: 16),
-      label: const Text(
-        'Eliminar',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
+      icon: const Icon(Icons.delete_outline_rounded, size: 15),
+      label: const Text('Eliminar',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     );
 
     final blockedHint = !canDelete
@@ -1462,38 +1616,21 @@ class _UserRowActions extends StatelessWidget {
             style: TextStyle(
               color: _SuperadminPalette.footerText,
               fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           )
         : null;
-
-    if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [editButton, deleteButton],
-          ),
-          if (blockedHint != null) ...[
-            const SizedBox(height: 8),
-            blockedHint,
-          ],
-        ],
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 8,
+          spacing: compact ? 10 : 8,
           runSpacing: 8,
           children: [editButton, deleteButton],
         ),
         if (blockedHint != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           blockedHint,
         ],
       ],
@@ -1509,9 +1646,8 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = _roleBadgeStyle(role);
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: BorderRadius.circular(999),
@@ -1553,7 +1689,7 @@ class _PaginationFooter extends StatelessWidget {
     final totalPages = total == 0 ? 1 : (total / pageSize).ceil();
 
     final info = Text(
-      'Mostrando $start-$end de $total usuarios. Pagina $page de $totalPages.',
+      'Mostrando $start–$end de $total usuarios · Página $page de $totalPages',
       style: const TextStyle(
         color: _SuperadminPalette.footerText,
         fontSize: 12,
@@ -1562,34 +1698,32 @@ class _PaginationFooter extends StatelessWidget {
     );
 
     final controls = Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 8,
+      runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        OutlinedButton(
+        _PaginationButton(
+          label: '← Anterior',
           onPressed: onPrevious,
-          style: _paginationButtonStyle(),
-          child: const Text('Anterior'),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: _SuperadminPalette.pageBackground,
+            color: _SuperadminPalette.textPrimary,
             borderRadius: BorderRadius.circular(9),
           ),
           child: Text(
-            'Pagina $page',
+            '$page',
             style: const TextStyle(
-              color: _SuperadminPalette.footerText,
+              color: Colors.white,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
-        OutlinedButton(
+        _PaginationButton(
+          label: 'Siguiente →',
           onPressed: onNext,
-          style: _paginationButtonStyle(),
-          child: const Text('Siguiente'),
         ),
       ],
     );
@@ -1599,11 +1733,7 @@ class _PaginationFooter extends StatelessWidget {
       child: compact
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                info,
-                const SizedBox(height: 12),
-                controls,
-              ],
+              children: [info, const SizedBox(height: 12), controls],
             )
           : Row(
               children: [
@@ -1614,14 +1744,33 @@ class _PaginationFooter extends StatelessWidget {
             ),
     );
   }
+}
 
-  ButtonStyle _paginationButtonStyle() {
-    return OutlinedButton.styleFrom(
-      foregroundColor: _SuperadminPalette.textPrimary,
-      side: const BorderSide(color: _SuperadminPalette.cardBorder),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-      minimumSize: const Size(84, 34),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+class _PaginationButton extends StatelessWidget {
+  const _PaginationButton({required this.label, this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: onPressed == null
+            ? _SuperadminPalette.footerText
+            : _SuperadminPalette.textPrimary,
+        side: BorderSide(
+          color: onPressed == null
+              ? _SuperadminPalette.cardBorder
+              : _SuperadminPalette.cardBorder,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        minimumSize: const Size(88, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      child: Text(label),
     );
   }
 }
@@ -1632,14 +1781,14 @@ class _UsersLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 40),
+      padding: EdgeInsets.symmetric(vertical: 48),
       child: Center(
         child: SizedBox(
-          width: 24,
-          height: 24,
+          width: 22,
+          height: 22,
           child: CircularProgressIndicator(
-            strokeWidth: 2.4,
-            color: _SuperadminPalette.textPrimary,
+            strokeWidth: 2.5,
+            color: _SuperadminPalette.brandGreen,
           ),
         ),
       ),
@@ -1663,27 +1812,45 @@ class _UsersError extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 22),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: const Color(0xFFFFF7F2),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFF0D8C4),
-            width: 0.5,
-          ),
+          border: Border.all(color: const Color(0xFFF0D8C4), width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message,
-              style: const TextStyle(
-                color: _SuperadminPalette.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDEBDC),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFF9A4F23),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: _SuperadminPalette.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Text(
               details,
               style: const TextStyle(
@@ -1692,16 +1859,17 @@ class _UsersError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            OutlinedButton(
+            OutlinedButton.icon(
               onPressed: onRetry,
               style: OutlinedButton.styleFrom(
-                foregroundColor: _SuperadminPalette.textPrimary,
-                side: const BorderSide(color: _SuperadminPalette.cardBorder),
+                foregroundColor: const Color(0xFF9A4F23),
+                side: const BorderSide(color: Color(0xFFF0D8C4)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('Reintentar'),
+              icon: const Icon(Icons.refresh_rounded, size: 15),
+              label: const Text('Reintentar'),
             ),
           ],
         ),
@@ -1715,24 +1883,39 @@ class _UsersEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 36),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
       child: Column(
         children: [
-          Text(
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0EEE9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.person_search_rounded,
+              color: _SuperadminPalette.footerText,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
             'No hay usuarios para mostrar',
             style: TextStyle(
               color: _SuperadminPalette.textPrimary,
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 6),
+          const Text(
             'Prueba otro filtro o actualiza la consulta.',
             style: TextStyle(
               color: _SuperadminPalette.footerText,
-              fontSize: 12,
+              fontSize: 12.5,
             ),
           ),
         ],
@@ -1741,21 +1924,17 @@ class _UsersEmpty extends StatelessWidget {
   }
 }
 
-List<Widget> _buildRoleBadges(List<String> roles) {
-  if (roles.isEmpty) {
-    return const [_RoleBadge(role: 'sin rol')];
-  }
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  return roles.map((role) => _RoleBadge(role: role)).toList(growable: false);
+List<Widget> _buildRoleBadges(List<String> roles) {
+  if (roles.isEmpty) return const [_RoleBadge(role: 'sin rol')];
+  return roles.map((r) => _RoleBadge(role: r)).toList(growable: false);
 }
 
 String _resolveSessionRole(List<String> roles) {
   for (final role in roles) {
-    if (role.trim().toLowerCase() == 'superadmin') {
-      return role;
-    }
+    if (role.trim().toLowerCase() == 'superadmin') return role;
   }
-
   return roles.isEmpty ? 'sin rol' : roles.first;
 }
 
@@ -1767,63 +1946,37 @@ String _userInitials(SuperadminUser user) {
           : user.id.trim();
   final parts = source
       .split(RegExp(r'[\s._-]+'))
-      .where((part) => part.isNotEmpty)
+      .where((p) => p.isNotEmpty)
       .toList(growable: false);
-
-  if (parts.length >= 2) {
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-
-  if (parts.isEmpty) {
-    return '?';
-  }
-
+  if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  if (parts.isEmpty) return '?';
   final single = parts.first;
   return single.substring(0, single.length >= 2 ? 2 : 1).toUpperCase();
 }
 
 String _humanizeRole(String role) {
   final trimmed = role.trim();
-  if (trimmed.isEmpty) {
-    return 'Sin rol';
-  }
-
+  if (trimmed.isEmpty) return 'Sin rol';
   return trimmed
       .split(RegExp(r'[_\s-]+'))
-      .where((part) => part.isNotEmpty)
-      .map(
-        (part) =>
-            '${part.substring(0, 1).toUpperCase()}${part.substring(1).toLowerCase()}',
-      )
+      .where((p) => p.isNotEmpty)
+      .map((p) => '${p[0].toUpperCase()}${p.substring(1).toLowerCase()}')
       .join(' ');
 }
 
 Object? _changedStringField(String nextValue, String? currentValue) {
-  final normalizedNext = nextValue.trim();
-  final normalizedCurrent = currentValue?.trim() ?? '';
-  if (normalizedNext == normalizedCurrent) {
-    return superadminNoChange;
-  }
-
-  return normalizedNext;
+  final n = nextValue.trim();
+  final c = currentValue?.trim() ?? '';
+  return n == c ? superadminNoChange : n;
 }
 
 bool _sameRoles(List<String> left, List<String> right) {
-  final normalizedLeft = [...left.map((role) => role.trim()).where((role) => role.isNotEmpty)]
-    ..sort();
-  final normalizedRight = [...right.map((role) => role.trim()).where((role) => role.isNotEmpty)]
-    ..sort();
-
-  if (normalizedLeft.length != normalizedRight.length) {
-    return false;
+  final l = [...left.map((r) => r.trim()).where((r) => r.isNotEmpty)]..sort();
+  final r = [...right.map((r) => r.trim()).where((r) => r.isNotEmpty)]..sort();
+  if (l.length != r.length) return false;
+  for (var i = 0; i < l.length; i++) {
+    if (l[i] != r[i]) return false;
   }
-
-  for (var index = 0; index < normalizedLeft.length; index += 1) {
-    if (normalizedLeft[index] != normalizedRight[index]) {
-      return false;
-    }
-  }
-
   return true;
 }
 
@@ -1834,29 +1987,16 @@ String _readSuperadminErrorMessage(Object error, {required String fallback}) {
       final errorData = payload['error'];
       if (errorData is Map<String, dynamic>) {
         final details = errorData['details'];
-        if (details is String && details.trim().isNotEmpty) {
-          return details.trim();
-        }
-
+        if (details is String && details.trim().isNotEmpty) return details.trim();
         final message = errorData['message'];
-        if (message is String && message.trim().isNotEmpty) {
-          return message.trim();
-        }
+        if (message is String && message.trim().isNotEmpty) return message.trim();
       }
     }
-
-    final message = error.message;
-    if (message != null && message.trim().isNotEmpty) {
-      return message.trim();
-    }
+    final msg = error.message;
+    if (msg != null && msg.trim().isNotEmpty) return msg.trim();
   }
-
   final text = error.toString().trim();
-  if (text.isNotEmpty) {
-    return text;
-  }
-
-  return fallback;
+  return text.isNotEmpty ? text : fallback;
 }
 
 _BadgeColors _roleBadgeStyle(String role) {
@@ -1885,26 +2025,22 @@ _BadgeColors _roleBadgeStyle(String role) {
 }
 
 class _BadgeColors {
-  const _BadgeColors({
-    required this.background,
-    required this.foreground,
-  });
-
+  const _BadgeColors({required this.background, required this.foreground});
   final Color background;
   final Color foreground;
 }
 
-const double _userColumnWidth = 320;
-const double _emailColumnWidth = 250;
-const double _roleColumnWidth = 220;
+// ─── Layout constants ────────────────────────────────────────────────────────
+
+const double _userColumnWidth = 300;
+const double _emailColumnWidth = 240;
+const double _roleColumnWidth = 210;
 const double _idColumnWidth = 190;
 const double _actionsColumnWidth = 190;
 const double _desktopTableWidth =
-    _userColumnWidth +
-    _emailColumnWidth +
-    _roleColumnWidth +
-    _idColumnWidth +
-    _actionsColumnWidth;
+    _userColumnWidth + _emailColumnWidth + _roleColumnWidth + _idColumnWidth + _actionsColumnWidth;
+
+// ─── Palette ─────────────────────────────────────────────────────────────────
 
 class _SuperadminPalette {
   const _SuperadminPalette._();
