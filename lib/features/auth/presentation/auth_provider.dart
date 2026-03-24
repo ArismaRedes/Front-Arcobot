@@ -188,6 +188,7 @@ class AuthController extends StateNotifier<AuthState> {
     final backendSession = await _repository.verifyBackendSession();
     state = AuthState(
       status: AuthStatus.authenticated,
+      subject: backendSession.subject,
       roles: backendSession.roles,
     );
   }

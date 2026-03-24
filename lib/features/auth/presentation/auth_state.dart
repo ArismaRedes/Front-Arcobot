@@ -10,6 +10,7 @@ class AuthState {
   const AuthState({
     required this.status,
     this.errorMessage,
+    this.subject,
     this.roles = const <String>[],
   });
 
@@ -17,6 +18,7 @@ class AuthState {
 
   final AuthStatus status;
   final String? errorMessage;
+  final String? subject;
   final List<String> roles;
 
   String? get primaryRole => roles.isEmpty ? null : roles.first;
@@ -26,12 +28,16 @@ class AuthState {
   AuthState copyWith({
     AuthStatus? status,
     String? errorMessage,
+    Object? subject = _unset,
     List<String>? roles,
   }) {
     return AuthState(
       status: status ?? this.status,
       errorMessage: errorMessage,
+      subject: identical(subject, _unset) ? this.subject : subject as String?,
       roles: roles ?? this.roles,
     );
   }
 }
+
+const Object _unset = Object();

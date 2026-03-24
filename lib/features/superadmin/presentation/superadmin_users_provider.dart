@@ -6,3 +6,9 @@ final superadminUsersProvider = FutureProvider.autoDispose
       final repository = ref.watch(superadminRepositoryProvider);
       return repository.fetchUsers(query);
     });
+
+final superadminOrganizationRolesProvider =
+    FutureProvider.autoDispose<List<SuperadminOrganizationRole>>((ref) async {
+      final repository = ref.watch(superadminRepositoryProvider);
+      return repository.fetchOrganizationRoles();
+    });

@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/widgets/app_confirmation_dialog.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/superadmin/data/superadmin_repository.dart';
+import 'package:front_arcobot/features/superadmin/presentation/superadmin_user_form_dialog.dart';
 import 'package:front_arcobot/features/superadmin/presentation/superadmin_users_provider.dart';
 
 class SuperadminScreen extends ConsumerStatefulWidget {
@@ -21,8 +23,16 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   Timer? _searchDebounce;
   String _search = '';
   int _page = 1;
+  bool _isMutating = false;
+  String? _busyUserId;
   String? _lastUsersDebugKey;
   static const int _pageSize = 20;
+
+  SuperadminUsersQuery get _query => SuperadminUsersQuery(
+        search: _search,
+        page: _page,
+        pageSize: _pageSize,
+      );
 
   @override
   void initState() {
@@ -41,15 +51,12 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final authConfig = ref.watch(authRuntimeConfigProvider);
-    final query = SuperadminUsersQuery(
-      search: _search,
-      page: _page,
-      pageSize: _pageSize,
-    );
+    final query = _query;
     final usersAsync = ref.watch(superadminUsersProvider(query));
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 760;
     final activeRole = _resolveSessionRole(authState.roles);
+    final currentUserId = authState.subject;
 
     usersAsync.whenData((page) {
       final debugKey =
@@ -104,10 +111,14 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
                           controller: _searchController,
                           search: _search,
                           organizationId: authConfig.organizationId,
+                          isMutating: _isMutating,
+                          currentUserId: currentUserId,
+                          busyUserId: _busyUserId,
                           onChanged: _handleSearchChanged,
-                          onRefresh: () {
-                            ref.invalidate(superadminUsersProvider(query));
-                          },
+                          onRefresh: _refreshUsers,
+                          onCreate: _openCreateUserDialog,
+                          onEdit: _openEditUserDialog,
+                          onDelete: _confirmDeleteUser,
                           usersAsync: usersAsync,
                           onPrevious: () => setState(() => _page -= 1),
                           onNext: () => setState(() => _page += 1),
@@ -135,6 +146,147 @@ class _SuperadminScreenState extends ConsumerState<SuperadminScreen> {
         _page = 1;
       });
     });
+  }
+
+  Future<void> _refreshUsers() async {
+    ref.invalidate(superadminUsersProvider(_query));
+  }
+
+  Future<void> _openCreateUserDialog() async {
+    final formResult = await showSuperadminUserFormDialog(
+      context,
+      mode: SuperadminUserFormMode.create,
+    );
+
+    if (formResult == null || !mounted) {
+      return;
+    }
+
+    await _runUserMutation(
+      busyUserId: null,
+      action: () async {
+        await ref.read(superadminRepositoryProvider).createUser(
+              CreateSuperadminUserInput(
+                name: formResult.name,
+                username: formResult.username,
+                primaryEmail: formResult.primaryEmail,
+                primaryPhone: formResult.primaryPhone,
+                avatar: formResult.avatar,
+                password: formResult.password,
+                isSuspended: formResult.isSuspended,
+                organizationRoleNames: formResult.organizationRoleNames,
+              ),
+            );
+      },
+      successMessage: 'Usuario creado correctamente.',
+      errorFallback: 'No se pudo crear el usuario.',
+    );
+  }
+
+  Future<void> _openEditUserDialog(SuperadminUser user) async {
+    final formResult = await showSuperadminUserFormDialog(
+      context,
+      mode: SuperadminUserFormMode.edit,
+      initialUser: user,
+    );
+
+    if (formResult == null || !mounted) {
+      return;
+    }
+
+    await _runUserMutation(
+      busyUserId: user.id,
+      action: () async {
+        await ref.read(superadminRepositoryProvider).updateUser(
+              user.id,
+              UpdateSuperadminUserInput(
+                name: formResult.name,
+                username: formResult.username,
+                primaryEmail: formResult.primaryEmail,
+                primaryPhone: formResult.primaryPhone,
+                avatar: formResult.avatar,
+                isSuspended: formResult.isSuspended,
+                organizationRoleNames: formResult.organizationRoleNames,
+              ),
+            );
+      },
+      successMessage: 'Usuario actualizado correctamente.',
+      errorFallback: 'No se pudo actualizar el usuario.',
+    );
+  }
+
+  Future<void> _confirmDeleteUser(SuperadminUser user) async {
+    if (user.id == ref.read(authControllerProvider).subject) {
+      _showMessage(
+        'No puedes eliminar el usuario con la sesion actual.',
+        isError: true,
+      );
+      return;
+    }
+
+    final shouldDelete = await showAppConfirmationDialog(
+      context,
+      title: 'Eliminar usuario',
+      message:
+          'Se eliminara ${user.displayLabel} en Logto. Esta accion no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    await _runUserMutation(
+      busyUserId: user.id,
+      action: () => ref.read(superadminRepositoryProvider).deleteUser(user.id),
+      successMessage: 'Usuario eliminado correctamente.',
+      errorFallback: 'No se pudo eliminar el usuario.',
+    );
+  }
+
+  Future<void> _runUserMutation({
+    required String? busyUserId,
+    required Future<void> Function() action,
+    required String successMessage,
+    required String errorFallback,
+  }) async {
+    setState(() {
+      _isMutating = true;
+      _busyUserId = busyUserId;
+    });
+
+    try {
+      await action();
+      await _refreshUsers();
+      if (!mounted) {
+        return;
+      }
+      _showMessage(successMessage);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showMessage(
+        _readSuperadminErrorMessage(error, fallback: errorFallback),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMutating = false;
+          _busyUserId = null;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? const Color(0xFF9A4F23) : null,
+      ),
+    );
   }
 
   Future<void> _confirmSignOut() async {
@@ -447,8 +599,14 @@ class _UsersSection extends StatelessWidget {
     required this.controller,
     required this.search,
     required this.organizationId,
+    required this.isMutating,
+    required this.currentUserId,
+    required this.busyUserId,
     required this.onChanged,
     required this.onRefresh,
+    required this.onCreate,
+    required this.onEdit,
+    required this.onDelete,
     required this.usersAsync,
     required this.onPrevious,
     required this.onNext,
@@ -458,8 +616,14 @@ class _UsersSection extends StatelessWidget {
   final TextEditingController controller;
   final String search;
   final String? organizationId;
+  final bool isMutating;
+  final String? currentUserId;
+  final String? busyUserId;
   final ValueChanged<String> onChanged;
-  final VoidCallback onRefresh;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onCreate;
+  final Future<void> Function(SuperadminUser user) onEdit;
+  final Future<void> Function(SuperadminUser user) onDelete;
   final AsyncValue<SuperadminUsersPage> usersAsync;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
@@ -483,8 +647,10 @@ class _UsersSection extends StatelessWidget {
             controller: controller,
             search: search,
             organizationId: organizationId,
+            isMutating: isMutating,
             onChanged: onChanged,
             onRefresh: onRefresh,
+            onCreate: onCreate,
           ),
           const Divider(
             height: 1,
@@ -497,6 +663,11 @@ class _UsersSection extends StatelessWidget {
               data: (page) => _UsersPanel(
                 compact: compact,
                 page: page,
+                currentUserId: currentUserId,
+                busyUserId: busyUserId,
+                isMutating: isMutating,
+                onEdit: onEdit,
+                onDelete: onDelete,
                 onPrevious: page.page > 1 ? onPrevious : null,
                 onNext: page.hasNextPage ? onNext : null,
               ),
@@ -520,16 +691,20 @@ class _UsersToolbar extends StatelessWidget {
     required this.controller,
     required this.search,
     required this.organizationId,
+    required this.isMutating,
     required this.onChanged,
     required this.onRefresh,
+    required this.onCreate,
   });
 
   final bool compact;
   final TextEditingController controller;
   final String search;
   final String? organizationId;
+  final bool isMutating;
   final ValueChanged<String> onChanged;
-  final VoidCallback onRefresh;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -559,7 +734,7 @@ class _UsersToolbar extends StatelessWidget {
     );
 
     final refreshButton = OutlinedButton(
-      onPressed: onRefresh,
+      onPressed: isMutating ? null : onRefresh,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(118, 42),
         foregroundColor: _SuperadminPalette.textPrimary,
@@ -569,6 +744,20 @@ class _UsersToolbar extends StatelessWidget {
       child: const Text(
         'Actualizar',
         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+
+    final createButton = FilledButton.icon(
+      onPressed: isMutating ? null : onCreate,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(148, 42),
+        backgroundColor: _SuperadminPalette.textPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+      label: const Text(
+        'Crear usuario',
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       ),
     );
 
@@ -582,13 +771,22 @@ class _UsersToolbar extends StatelessWidget {
           if (compact) ...[
             searchField,
             const SizedBox(height: 10),
-            SizedBox(width: double.infinity, child: refreshButton),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                createButton,
+                const SizedBox(height: 10),
+                refreshButton,
+              ],
+            ),
           ] else
             Row(
               children: [
                 Expanded(child: searchField),
                 const SizedBox(width: 12),
                 refreshButton,
+                const SizedBox(width: 12),
+                createButton,
               ],
             ),
         ],
@@ -740,12 +938,22 @@ class _UsersPanel extends StatelessWidget {
   const _UsersPanel({
     required this.compact,
     required this.page,
+    required this.currentUserId,
+    required this.busyUserId,
+    required this.isMutating,
+    required this.onEdit,
+    required this.onDelete,
     this.onPrevious,
     this.onNext,
   });
 
   final bool compact;
   final SuperadminUsersPage page;
+  final String? currentUserId;
+  final String? busyUserId;
+  final bool isMutating;
+  final Future<void> Function(SuperadminUser user) onEdit;
+  final Future<void> Function(SuperadminUser user) onDelete;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
@@ -760,9 +968,23 @@ class _UsersPanel extends StatelessWidget {
       children: [
         if (!compact) const SizedBox(height: 8),
         if (compact)
-          _MobileUsersList(users: page.users)
+          _MobileUsersList(
+            users: page.users,
+            currentUserId: currentUserId,
+            busyUserId: busyUserId,
+            isMutating: isMutating,
+            onEdit: onEdit,
+            onDelete: onDelete,
+          )
         else
-          _DesktopUsersTable(users: page.users),
+          _DesktopUsersTable(
+            users: page.users,
+            currentUserId: currentUserId,
+            busyUserId: busyUserId,
+            isMutating: isMutating,
+            onEdit: onEdit,
+            onDelete: onDelete,
+          ),
         const Divider(
           height: 1,
           thickness: 0.5,
@@ -782,9 +1004,21 @@ class _UsersPanel extends StatelessWidget {
 }
 
 class _DesktopUsersTable extends StatelessWidget {
-  const _DesktopUsersTable({required this.users});
+  const _DesktopUsersTable({
+    required this.users,
+    required this.currentUserId,
+    required this.busyUserId,
+    required this.isMutating,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final List<SuperadminUser> users;
+  final String? currentUserId;
+  final String? busyUserId;
+  final bool isMutating;
+  final Future<void> Function(SuperadminUser user) onEdit;
+  final Future<void> Function(SuperadminUser user) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -802,10 +1036,17 @@ class _DesktopUsersTable extends StatelessWidget {
             ),
             ...List.generate(users.length, (index) {
               final isLast = index == users.length - 1;
+              final user = users[index];
 
               return Column(
                 children: [
-                  _TableRow(user: users[index]),
+                  _TableRow(
+                    user: user,
+                    canDelete: user.id != currentUserId,
+                    isBusy: isMutating && busyUserId == user.id,
+                    onEdit: () => onEdit(user),
+                    onDelete: () => onDelete(user),
+                  ),
                   if (!isLast)
                     const Divider(
                       height: 1,
@@ -835,6 +1076,7 @@ class _TableHeader extends StatelessWidget {
           SizedBox(width: _emailColumnWidth, child: _HeaderText('CORREO')),
           SizedBox(width: _roleColumnWidth, child: _HeaderText('ROL')),
           SizedBox(width: _idColumnWidth, child: _HeaderText('ID')),
+          SizedBox(width: _actionsColumnWidth, child: _HeaderText('ACCIONES')),
         ],
       ),
     );
@@ -861,9 +1103,19 @@ class _HeaderText extends StatelessWidget {
 }
 
 class _TableRow extends StatelessWidget {
-  const _TableRow({required this.user});
+  const _TableRow({
+    required this.user,
+    required this.canDelete,
+    required this.isBusy,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final SuperadminUser user;
+  final bool canDelete;
+  final bool isBusy;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -908,6 +1160,16 @@ class _TableRow extends StatelessWidget {
               ),
             ),
           ),
+          SizedBox(
+            width: _actionsColumnWidth,
+            child: _UserRowActions(
+              compact: false,
+              canDelete: canDelete,
+              isBusy: isBusy,
+              onEdit: onEdit,
+              onDelete: onDelete,
+            ),
+          ),
         ],
       ),
     );
@@ -915,9 +1177,21 @@ class _TableRow extends StatelessWidget {
 }
 
 class _MobileUsersList extends StatelessWidget {
-  const _MobileUsersList({required this.users});
+  const _MobileUsersList({
+    required this.users,
+    required this.currentUserId,
+    required this.busyUserId,
+    required this.isMutating,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final List<SuperadminUser> users;
+  final String? currentUserId;
+  final String? busyUserId;
+  final bool isMutating;
+  final Future<void> Function(SuperadminUser user) onEdit;
+  final Future<void> Function(SuperadminUser user) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -928,7 +1202,13 @@ class _MobileUsersList extends StatelessWidget {
             .map(
               (user) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _MobileUserCard(user: user),
+                child: _MobileUserCard(
+                  user: user,
+                  canDelete: user.id != currentUserId,
+                  isBusy: isMutating && busyUserId == user.id,
+                  onEdit: () => onEdit(user),
+                  onDelete: () => onDelete(user),
+                ),
               ),
             )
             .toList(growable: false),
@@ -938,9 +1218,19 @@ class _MobileUsersList extends StatelessWidget {
 }
 
 class _MobileUserCard extends StatelessWidget {
-  const _MobileUserCard({required this.user});
+  const _MobileUserCard({
+    required this.user,
+    required this.canDelete,
+    required this.isBusy,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final SuperadminUser user;
+  final bool canDelete;
+  final bool isBusy;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -990,6 +1280,14 @@ class _MobileUserCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 14),
+          _UserRowActions(
+            compact: true,
+            canDelete: canDelete,
+            isBusy: isBusy,
+            onEdit: onEdit,
+            onDelete: onDelete,
+          ),
         ],
       ),
     );
@@ -1027,15 +1325,43 @@ class _UserIdentity extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                user.displayLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _SuperadminPalette.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      user.displayLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _SuperadminPalette.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (user.isSuspended) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDEBDC),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'SUSPENDIDO',
+                        style: TextStyle(
+                          color: Color(0xFF9A4F23),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 3),
               Text(
@@ -1051,6 +1377,106 @@ class _UserIdentity extends StatelessWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _UserRowActions extends StatelessWidget {
+  const _UserRowActions({
+    required this.compact,
+    required this.canDelete,
+    required this.isBusy,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final bool compact;
+  final bool canDelete;
+  final bool isBusy;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final editButton = OutlinedButton.icon(
+      onPressed: isBusy ? null : onEdit,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _SuperadminPalette.textPrimary,
+        side: const BorderSide(color: _SuperadminPalette.cardBorder),
+        minimumSize: Size(compact ? 0 : 86, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      icon: isBusy
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.edit_outlined, size: 16),
+      label: const Text(
+        'Editar',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+
+    final deleteButton = OutlinedButton.icon(
+      onPressed: (!canDelete || isBusy) ? null : onDelete,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF9A4F23),
+        side: const BorderSide(color: Color(0xFFF0D8C4)),
+        minimumSize: Size(compact ? 0 : 92, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      icon: const Icon(Icons.delete_outline_rounded, size: 16),
+      label: const Text(
+        'Eliminar',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+
+    final blockedHint = !canDelete
+        ? const Text(
+            'Sesion actual',
+            style: TextStyle(
+              color: _SuperadminPalette.footerText,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        : null;
+
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [editButton, deleteButton],
+          ),
+          if (blockedHint != null) ...[
+            const SizedBox(height: 8),
+            blockedHint,
+          ],
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [editButton, deleteButton],
+        ),
+        if (blockedHint != null) ...[
+          const SizedBox(height: 8),
+          blockedHint,
+        ],
       ],
     );
   }
@@ -1353,6 +1779,38 @@ String _humanizeRole(String role) {
       .join(' ');
 }
 
+String _readSuperadminErrorMessage(Object error, {required String fallback}) {
+  if (error is DioException) {
+    final payload = error.response?.data;
+    if (payload is Map<String, dynamic>) {
+      final errorData = payload['error'];
+      if (errorData is Map<String, dynamic>) {
+        final details = errorData['details'];
+        if (details is String && details.trim().isNotEmpty) {
+          return details.trim();
+        }
+
+        final message = errorData['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+    }
+
+    final message = error.message;
+    if (message != null && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+  }
+
+  final text = error.toString().trim();
+  if (text.isNotEmpty) {
+    return text;
+  }
+
+  return fallback;
+}
+
 _BadgeColors _roleBadgeStyle(String role) {
   switch (role.trim().toLowerCase()) {
     case 'superadmin':
@@ -1392,8 +1850,13 @@ const double _userColumnWidth = 320;
 const double _emailColumnWidth = 250;
 const double _roleColumnWidth = 220;
 const double _idColumnWidth = 190;
+const double _actionsColumnWidth = 190;
 const double _desktopTableWidth =
-    _userColumnWidth + _emailColumnWidth + _roleColumnWidth + _idColumnWidth;
+    _userColumnWidth +
+    _emailColumnWidth +
+    _roleColumnWidth +
+    _idColumnWidth +
+    _actionsColumnWidth;
 
 class _SuperadminPalette {
   const _SuperadminPalette._();

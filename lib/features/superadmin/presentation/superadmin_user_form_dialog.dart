@@ -1,0 +1,519 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:front_arcobot/features/superadmin/data/superadmin_repository.dart';
+import 'package:front_arcobot/features/superadmin/presentation/superadmin_users_provider.dart';
+
+enum SuperadminUserFormMode { create, edit }
+
+class SuperadminUserFormResult {
+  const SuperadminUserFormResult({
+    required this.name,
+    required this.username,
+    required this.primaryEmail,
+    required this.primaryPhone,
+    required this.avatar,
+    required this.password,
+    required this.isSuspended,
+    required this.organizationRoleNames,
+  });
+
+  final String name;
+  final String username;
+  final String primaryEmail;
+  final String primaryPhone;
+  final String avatar;
+  final String password;
+  final bool isSuspended;
+  final List<String> organizationRoleNames;
+}
+
+Future<SuperadminUserFormResult?> showSuperadminUserFormDialog(
+  BuildContext context, {
+  required SuperadminUserFormMode mode,
+  SuperadminUser? initialUser,
+}) {
+  return showDialog<SuperadminUserFormResult>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _SuperadminUserFormDialog(
+      mode: mode,
+      initialUser: initialUser,
+    ),
+  );
+}
+
+class _SuperadminUserFormDialog extends ConsumerStatefulWidget {
+  const _SuperadminUserFormDialog({
+    required this.mode,
+    this.initialUser,
+  });
+
+  final SuperadminUserFormMode mode;
+  final SuperadminUser? initialUser;
+
+  @override
+  ConsumerState<_SuperadminUserFormDialog> createState() =>
+      _SuperadminUserFormDialogState();
+}
+
+class _SuperadminUserFormDialogState
+    extends ConsumerState<_SuperadminUserFormDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _avatarController;
+  late final TextEditingController _passwordController;
+  late bool _isSuspended;
+  late Set<String> _selectedRoles;
+  String? _validationMessage;
+
+  bool get _isCreate => widget.mode == SuperadminUserFormMode.create;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialUser = widget.initialUser;
+    _nameController = TextEditingController(text: initialUser?.name ?? '');
+    _usernameController = TextEditingController(text: initialUser?.username ?? '');
+    _emailController =
+        TextEditingController(text: initialUser?.primaryEmail ?? '');
+    _phoneController =
+        TextEditingController(text: initialUser?.primaryPhone ?? '');
+    _avatarController = TextEditingController(text: initialUser?.avatar ?? '');
+    _passwordController = TextEditingController();
+    _isSuspended = initialUser?.isSuspended ?? false;
+    _selectedRoles = {...?initialUser?.roles};
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _avatarController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rolesAsync = ref.watch(superadminOrganizationRolesProvider);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final dialogWidth = screenWidth < 640 ? screenWidth - 24 : 560.0;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: dialogWidth),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _isCreate ? 'Crear usuario' : 'Editar usuario',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: _DialogPalette.textPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _isCreate
+                    ? 'Crea el usuario en Logto y asigna sus roles de organizacion.'
+                    : 'Actualiza los datos visibles y reemplaza los roles del usuario.',
+                style: const TextStyle(
+                  color: _DialogPalette.textMuted,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 18),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final twoColumns = constraints.maxWidth >= 470;
+
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _FieldShell(
+                        width: _fieldWidth(constraints.maxWidth, twoColumns),
+                        child: _AppTextField(
+                          controller: _nameController,
+                          label: 'Nombre',
+                          hintText: 'Nombre visible',
+                        ),
+                      ),
+                      _FieldShell(
+                        width: _fieldWidth(constraints.maxWidth, twoColumns),
+                        child: _AppTextField(
+                          controller: _usernameController,
+                          label: 'Username',
+                          hintText: 'Ej. usuario123',
+                        ),
+                      ),
+                      _FieldShell(
+                        width: _fieldWidth(constraints.maxWidth, twoColumns),
+                        child: _AppTextField(
+                          controller: _emailController,
+                          label: 'Correo principal',
+                          hintText: 'usuario@dominio.com',
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                      ),
+                      _FieldShell(
+                        width: _fieldWidth(constraints.maxWidth, twoColumns),
+                        child: _AppTextField(
+                          controller: _phoneController,
+                          label: 'Telefono principal',
+                          hintText: 'Opcional',
+                          keyboardType: TextInputType.phone,
+                        ),
+                      ),
+                      _FieldShell(
+                        width: constraints.maxWidth,
+                        child: _AppTextField(
+                          controller: _avatarController,
+                          label: 'Avatar URL',
+                          hintText: 'https://...',
+                          keyboardType: TextInputType.url,
+                        ),
+                      ),
+                      if (_isCreate)
+                        _FieldShell(
+                          width: constraints.maxWidth,
+                          child: _AppTextField(
+                            controller: _passwordController,
+                            label: 'Contrasena',
+                            hintText: 'Minimo 6 caracteres',
+                            obscureText: true,
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAF7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE3E8E1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _isSuspended,
+                      onChanged: (value) => setState(() => _isSuspended = value),
+                      title: const Text(
+                        'Usuario suspendido',
+                        style: TextStyle(
+                          color: _DialogPalette.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Controla si el usuario queda suspendido en Logto.',
+                        style: TextStyle(
+                          color: _DialogPalette.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Roles de organizacion',
+                      style: TextStyle(
+                        color: _DialogPalette.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Puedes seleccionar varios. En edicion, la lista reemplaza los roles actuales.',
+                      style: TextStyle(
+                        color: _DialogPalette.textMuted,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    rolesAsync.when(
+                      data: (roles) {
+                        if (roles.isEmpty) {
+                          return const Text(
+                            'No hay roles disponibles en la organizacion.',
+                            style: TextStyle(
+                              color: _DialogPalette.textMuted,
+                              fontSize: 12,
+                            ),
+                          );
+                        }
+
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: roles
+                              .map(
+                                (role) => FilterChip(
+                                  label: Text(role.name),
+                                  selected: _selectedRoles.contains(role.name),
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedRoles.add(role.name);
+                                      } else {
+                                        _selectedRoles.remove(role.name);
+                                      }
+                                    });
+                                  },
+                                  selectedColor: const Color(0xFFE1F5EE),
+                                  checkmarkColor: _DialogPalette.brandGreen,
+                                  side: const BorderSide(
+                                    color: Color(0xFFDCE4DB),
+                                  ),
+                                  labelStyle: const TextStyle(
+                                    color: _DialogPalette.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                        );
+                      },
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 6),
+                        child: LinearProgressIndicator(
+                          minHeight: 3,
+                          color: _DialogPalette.brandGreen,
+                        ),
+                      ),
+                      error: (error, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No se pudo cargar el catalogo de roles.\n$error',
+                            style: const TextStyle(
+                              color: Color(0xFF9A4F23),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton(
+                            onPressed: () {
+                              ref.invalidate(superadminOrganizationRolesProvider);
+                            },
+                            child: const Text('Reintentar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_validationMessage != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  _validationMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFB2431D),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        foregroundColor: _DialogPalette.textPrimary,
+                        side: const BorderSide(color: Color(0xFFD8DED4)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Cancelar'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _submit,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        backgroundColor: _DialogPalette.textPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(_isCreate ? 'Crear usuario' : 'Guardar cambios'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _submit() {
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (_isCreate &&
+        username.isEmpty &&
+        email.isEmpty &&
+        phone.isEmpty) {
+      setState(() {
+        _validationMessage =
+            'Debes escribir al menos username, correo o telefono.';
+      });
+      return;
+    }
+
+    if (_isCreate && password.isNotEmpty && password.length < 6) {
+      setState(() {
+        _validationMessage =
+            'La contrasena debe tener al menos 6 caracteres.';
+      });
+      return;
+    }
+
+    setState(() => _validationMessage = null);
+
+    Navigator.of(context).pop(
+      SuperadminUserFormResult(
+        name: _nameController.text.trim(),
+        username: username,
+        primaryEmail: email,
+        primaryPhone: phone,
+        avatar: _avatarController.text.trim(),
+        password: password,
+        isSuspended: _isSuspended,
+        organizationRoleNames: _selectedRoles.toList()..sort(),
+      ),
+    );
+  }
+
+  double _fieldWidth(double maxWidth, bool twoColumns) {
+    if (!twoColumns) {
+      return maxWidth;
+    }
+
+    return (maxWidth - 12) / 2;
+  }
+}
+
+class _FieldShell extends StatelessWidget {
+  const _FieldShell({
+    required this.width,
+    required this.child,
+  });
+
+  final double width;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: width, child: child);
+  }
+}
+
+class _AppTextField extends StatelessWidget {
+  const _AppTextField({
+    required this.controller,
+    required this.label,
+    required this.hintText,
+    this.keyboardType,
+    this.obscureText = false,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hintText;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: _DialogPalette.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            hintText: hintText,
+            filled: true,
+            fillColor: const Color(0xFFF7F8F5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFDCE4DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFDCE4DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _DialogPalette.brandGreen),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogPalette {
+  const _DialogPalette._();
+
+  static const textPrimary = Color(0xFF1A2E44);
+  static const textMuted = Color(0xFF6B7A8D);
+  static const brandGreen = Color(0xFF4ECBA0);
+}
