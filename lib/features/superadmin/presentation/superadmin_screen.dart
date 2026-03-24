@@ -1221,7 +1221,7 @@ class _HeaderText extends StatelessWidget {
   }
 }
 
-class _TableRow extends StatefulWidget {
+class _TableRow extends StatelessWidget {
   const _TableRow({
     required this.user,
     required this.canDelete,
@@ -1237,75 +1237,62 @@ class _TableRow extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<_TableRow> createState() => _TableRowState();
-}
-
-class _TableRowState extends State<_TableRow> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        color: _hovered ? const Color(0xFFFAF9F7) : Colors.transparent,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: _userColumnWidth,
-              child: _UserIdentity(user: widget.user),
-            ),
-            SizedBox(
-              width: _emailColumnWidth,
-              child: Text(
-                widget.user.primaryEmail ?? 'sin correo principal',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _SuperadminPalette.emailText,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: _userColumnWidth,
+            child: _UserIdentity(user: user),
+          ),
+          SizedBox(
+            width: _emailColumnWidth,
+            child: Text(
+              user.primaryEmail ?? 'sin correo principal',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _SuperadminPalette.emailText,
+                fontSize: 12,
+                fontFamily: 'monospace',
               ),
             ),
-            SizedBox(
-              width: _roleColumnWidth,
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _buildRoleBadges(widget.user.roles),
+          ),
+          SizedBox(
+            width: _roleColumnWidth,
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _buildRoleBadges(user.roles),
+            ),
+          ),
+          SizedBox(
+            width: _idColumnWidth,
+            child: Text(
+              user.id,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _SuperadminPalette.idText,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(
-              width: _idColumnWidth,
-              child: Text(
-                widget.user.id,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _SuperadminPalette.idText,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+          ),
+          SizedBox(
+            width: _actionsColumnWidth,
+            child: _UserRowActions(
+              compact: false,
+              canDelete: canDelete,
+              isBusy: isBusy,
+              onEdit: onEdit,
+              onDelete: onDelete,
             ),
-            SizedBox(
-              width: _actionsColumnWidth,
-              child: _UserRowActions(
-                compact: false,
-                canDelete: widget.canDelete,
-                isBusy: widget.isBusy,
-                onEdit: widget.onEdit,
-                onDelete: widget.onDelete,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
