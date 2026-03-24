@@ -65,7 +65,7 @@ class _SuperadminUserFormDialogState
   late final TextEditingController _avatarController;
   late final TextEditingController _passwordController;
   late bool _isSuspended;
-  late Set<String> _selectedRoles;
+  late String? _selectedRole;
   String? _validationMessage;
 
   bool get _isCreate => widget.mode == SuperadminUserFormMode.create;
@@ -83,7 +83,9 @@ class _SuperadminUserFormDialogState
     _avatarController = TextEditingController(text: initialUser?.avatar ?? '');
     _passwordController = TextEditingController();
     _isSuspended = initialUser?.isSuspended ?? false;
-    _selectedRoles = {...?initialUser?.roles};
+    _selectedRole = initialUser?.roles.isNotEmpty == true
+        ? initialUser!.roles.first.trim()
+        : null;
   }
 
   @override
@@ -253,7 +255,7 @@ class _SuperadminUserFormDialogState
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Puedes seleccionar varios. En edicion, la lista reemplaza los roles actuales.',
+                      'Solo se permite un rol por usuario. Puedes dejarlo sin rol.',
                       style: TextStyle(
                         color: _DialogPalette.textMuted,
                         fontSize: 12,
@@ -278,16 +280,12 @@ class _SuperadminUserFormDialogState
                           runSpacing: 8,
                           children: roles
                               .map(
-                                (role) => FilterChip(
+                                (role) => ChoiceChip(
                                   label: Text(role.name),
-                                  selected: _selectedRoles.contains(role.name),
+                                  selected: _selectedRole == role.name,
                                   onSelected: (selected) {
                                     setState(() {
-                                      if (selected) {
-                                        _selectedRoles.add(role.name);
-                                      } else {
-                                        _selectedRoles.remove(role.name);
-                                      }
+                                      _selectedRole = selected ? role.name : null;
                                     });
                                   },
                                   selectedColor: const Color(0xFFE1F5EE),
@@ -331,6 +329,14 @@ class _SuperadminUserFormDialogState
                         ],
                       ),
                     ),
+                    if (_selectedRole != null) ...[
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        onPressed: () => setState(() => _selectedRole = null),
+                        icon: const Icon(Icons.clear_rounded, size: 16),
+                        label: const Text('Quitar rol'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -421,7 +427,8 @@ class _SuperadminUserFormDialogState
         avatar: _avatarController.text.trim(),
         password: password,
         isSuspended: _isSuspended,
-        organizationRoleNames: _selectedRoles.toList()..sort(),
+        organizationRoleNames:
+            _selectedRole == null ? const <String>[] : <String>[_selectedRole!],
       ),
     );
   }
