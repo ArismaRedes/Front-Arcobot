@@ -10,6 +10,7 @@ import 'package:front_arcobot/features/preload/presentation/preload_screen.dart'
 import 'package:front_arcobot/features/sessions/presentation/student_home_screen.dart';
 import 'package:front_arcobot/features/sessions/presentation/student_join_screen.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
+import 'package:front_arcobot/features/simulator/presentation/simulator_screen.dart';
 import 'package:front_arcobot/features/superadmin/presentation/superadmin_screen.dart';
 import 'package:go_router/go_router.dart';
 
@@ -57,6 +58,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const TeacherSessionScreen(),
       ),
       GoRoute(
+        path: SimulatorScreen.routePath,
+        builder: (_, __) => const SimulatorScreen(),
+      ),
+      GoRoute(
         path: DashboardScreen.routePath,
         builder: (_, __) => const DashboardScreen(),
       ),
@@ -76,6 +81,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           PreloadScreen.routePath,
           LoginScreen.routePath,
           TeacherLoginScreen.routePath,
+          SimulatorScreen.routePath,
         },
         // Flujo estudiante: entra con PIN, sin cuenta Logto.
         publicPathPrefixes: const {'/class/'},

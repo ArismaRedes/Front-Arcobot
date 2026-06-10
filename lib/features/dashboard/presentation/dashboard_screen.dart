@@ -4,6 +4,7 @@ import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/core/widgets/arco_character.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
+import 'package:front_arcobot/features/simulator/presentation/simulator_screen.dart';
 import 'package:go_router/go_router.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -139,7 +140,8 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: ArcobotSpacing.md),
                         FilledButton(
-                          onPressed: () {},
+                          onPressed: () =>
+                              context.go(SimulatorScreen.routePath),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: ArcobotColors.skyBlue,
