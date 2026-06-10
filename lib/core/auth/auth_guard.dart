@@ -8,8 +8,10 @@ String? authRedirect({
   required String superadminPath,
   required Set<String> publicPaths,
   required Set<String> guestOnlyPaths,
+  Set<String> publicPathPrefixes = const {},
 }) {
-  final isAtPublicPath = publicPaths.contains(destination);
+  final isAtPublicPath = publicPaths.contains(destination) ||
+      publicPathPrefixes.any((prefix) => destination.startsWith(prefix));
   final isAtGuestOnlyPath = guestOnlyPaths.contains(destination);
   final isAtSuperadminPath = destination == superadminPath;
   final effectiveHomePath =

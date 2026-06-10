@@ -153,4 +153,91 @@ class AppTheme {
       ),
     );
   }
+
+  /// Tema oscuro del panel de adultos (docentes/admins).
+  /// Envuelve las pantallas del panel con `Theme(data: AppTheme.dark, ...)`
+  /// para que inputs, botones y snackbars hereden la paleta oscura.
+  static ThemeData get dark {
+    const accent = ArcobotPanelColors.accent;
+
+    final scheme = ColorScheme.fromSeed(
+      seedColor: accent,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: accent,
+      onPrimary: ArcobotPanelColors.onAccent,
+      secondary: ArcobotColors.skyBlue,
+      surface: ArcobotPanelColors.card,
+      onSurface: ArcobotPanelColors.textOnDark,
+      outline: ArcobotPanelColors.border,
+      error: ArcobotPanelColors.errorText,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: ArcobotPanelColors.bg,
+      fontFamily: 'Nunito',
+      cardTheme: const CardThemeData(
+        color: ArcobotPanelColors.card,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: ArcobotPanelColors.border, width: 0.5),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: ArcobotPanelColors.input,
+        hintStyle: const TextStyle(
+          color: ArcobotPanelColors.hint,
+          fontSize: 13,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: ArcobotPanelColors.border, width: 0.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: accent, width: 1),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: ArcobotPanelColors.onAccent,
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: ArcobotPanelColors.input,
+          foregroundColor: ArcobotPanelColors.subtle,
+          side: const BorderSide(color: ArcobotPanelColors.border, width: 0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ArcobotPanelColors.input,
+        contentTextStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: ArcobotPanelColors.textOnDark,
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: ArcobotPanelColors.border,
+        thickness: 1,
+      ),
+    );
+  }
 }

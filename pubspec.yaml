@@ -18,6 +18,8 @@ dependencies:
   flutter_svg: ^2.0.10+1
   mobile_scanner: ^5.2.3
   lottie: ^3.3.2
+  audioplayers: ^6.7.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_lints: ^5.0.0
@@ -32,4 +34,18 @@ flutter:
     - assets/images/robot_asomado.png
     - assets/images/auth/
     - assets/images/brand/
+    - assets/images/characters/
     - assets/images/dashboard/
+    - assets/audio/sfx/
+    - assets/audio/voice/
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Nunito-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-ExtraBold.ttf
+          weight: 800

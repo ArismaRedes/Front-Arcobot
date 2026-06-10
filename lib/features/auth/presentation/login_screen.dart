@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:front_arcobot/core/audio/arco_audio.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
+import 'package:front_arcobot/core/widgets/kid_error_banner.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/class_code_scanner_screen.dart';
 import 'package:front_arcobot/features/auth/presentation/teacher_login_screen.dart';
+import 'package:front_arcobot/features/sessions/presentation/student_join_screen.dart';
+import 'package:front_arcobot/features/sessions/presentation/student_session_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -24,11 +28,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late final Animation<double> _floatAnimation;
 
   String? _inlineError;
+  bool _validatingPin = false;
 
   @override
   void initState() {
     super.initState();
     _classCodeController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(arcoAudioProvider).narrate('escribe_codigo');
+    });
     _ambientController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -60,27 +68,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _showInlineError(String message) {
+    ref.read(arcoAudioProvider).sfx(ArcoSfx.error);
     HapticFeedback.mediumImpact();
     setState(() => _inlineError = message);
     _shakeController.forward(from: 0);
   }
 
-  void _joinClass() {
+  Future<void> _joinClass() async {
+    if (_validatingPin) {
+      return;
+    }
+
     final code = _classCodeController.text.trim();
     if (code.isEmpty) {
       _showInlineError('Escribe el código de tu clase para entrar');
       return;
     }
-    if (code.length < 4) {
-      _showInlineError('El código es muy corto, ¡revísalo!');
+    if (code.length < 6) {
+      _showInlineError('El código tiene 6 números, ¡revísalo!');
       return;
     }
 
+    ref.read(arcoAudioProvider).sfx(ArcoSfx.tap);
     HapticFeedback.lightImpact();
-    // TODO: conectar con el backend de sesiones (PIN tipo Kahoot).
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Código ingresado: $code')));
+    setState(() {
+      _validatingPin = true;
+      _inlineError = null;
+    });
+
+    try {
+      await ref.read(studentSessionProvider.notifier).validatePin(code);
+      if (!mounted) {
+        return;
+      }
+      ref.read(arcoAudioProvider).sfx(ArcoSfx.success);
+      context.go(StudentJoinScreen.pathFor(code));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showInlineError(StudentSessionController.friendlyError(error));
+    } finally {
+      if (mounted) {
+        setState(() => _validatingPin = false);
+      }
+    }
   }
 
   Future<void> _scanClassCode() async {
@@ -166,6 +198,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         child: _LoginCard(
                           controller: _classCodeController,
                           errorMessage: _inlineError ?? authState.errorMessage,
+                          validating: _validatingPin,
                           ambientController: _ambientController,
                           floatAnimation: _floatAnimation,
                           onScan: _scanClassCode,
@@ -239,6 +272,7 @@ class _LoginCard extends StatelessWidget {
   const _LoginCard({
     required this.controller,
     required this.errorMessage,
+    required this.validating,
     required this.ambientController,
     required this.floatAnimation,
     required this.onScan,
@@ -247,6 +281,7 @@ class _LoginCard extends StatelessWidget {
 
   final TextEditingController controller;
   final String? errorMessage;
+  final bool validating;
   final AnimationController ambientController;
   final Animation<double> floatAnimation;
   final VoidCallback onScan;
@@ -303,11 +338,11 @@ class _LoginCard extends StatelessWidget {
                   ? const SizedBox(width: double.infinity)
                   : Padding(
                       padding: const EdgeInsets.only(top: 14),
-                      child: _KidErrorBanner(message: errorMessage!),
+                      child: KidErrorBanner(message: errorMessage!),
                     ),
             ),
             const SizedBox(height: 20),
-            _QrScanButton(onPressed: onScan),
+            _QrScanButton(onPressed: validating ? null : onScan),
             const SizedBox(height: 18),
             const _DividerLabel(),
             const SizedBox(height: 18),
@@ -316,53 +351,19 @@ class _LoginCard extends StatelessWidget {
                 Expanded(
                   child: _ClassCodeField(
                     controller: controller,
+                    enabled: !validating,
                     onSubmitted: (_) => onJoin(),
                   ),
                 ),
                 const SizedBox(width: 10),
-                _ClassJoinButton(onPressed: onJoin),
+                _ClassJoinButton(
+                  onPressed: validating ? null : onJoin,
+                  busy: validating,
+                ),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _KidErrorBanner extends StatelessWidget {
-  const _KidErrorBanner({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: ArcobotKidColors.errorSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ArcobotKidColors.errorBorder,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          const Text('🐻', style: TextStyle(fontSize: 22)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: ArcobotKidColors.errorText,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 1.3,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -550,7 +551,7 @@ class _StarPulse extends StatelessWidget {
 class _QrScanButton extends StatelessWidget {
   const _QrScanButton({required this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -644,17 +645,23 @@ class _DividerLabel extends StatelessWidget {
 }
 
 class _ClassCodeField extends StatelessWidget {
-  const _ClassCodeField({required this.controller, required this.onSubmitted});
+  const _ClassCodeField({
+    required this.controller,
+    required this.enabled,
+    required this.onSubmitted,
+  });
 
   final TextEditingController controller;
+  final bool enabled;
   final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      enabled: enabled,
       textAlign: TextAlign.center,
-      textCapitalization: TextCapitalization.characters,
+      keyboardType: TextInputType.number,
       textInputAction: TextInputAction.done,
       autocorrect: false,
       enableSuggestions: false,
@@ -665,7 +672,7 @@ class _ClassCodeField extends StatelessWidget {
         letterSpacing: 4,
       ),
       decoration: InputDecoration(
-        hintText: 'CÓDIGO',
+        hintText: '123 456',
         hintStyle: const TextStyle(
           color: Color(0xFF9DA9BF),
           fontSize: 15,
@@ -695,14 +702,8 @@ class _ClassCodeField extends StatelessWidget {
         ),
       ),
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-        LengthLimitingTextInputFormatter(8),
-        TextInputFormatter.withFunction((oldValue, newValue) {
-          return TextEditingValue(
-            text: newValue.text.toUpperCase(),
-            selection: newValue.selection,
-          );
-        }),
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(6),
       ],
       onSubmitted: onSubmitted,
     );
@@ -710,9 +711,10 @@ class _ClassCodeField extends StatelessWidget {
 }
 
 class _ClassJoinButton extends StatelessWidget {
-  const _ClassJoinButton({required this.onPressed});
+  const _ClassJoinButton({required this.onPressed, this.busy = false});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -726,6 +728,8 @@ class _ClassJoinButton extends StatelessWidget {
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: ArcobotKidColors.action,
+            disabledBackgroundColor:
+                ArcobotKidColors.action.withValues(alpha: 0.6),
             foregroundColor: Colors.white,
             elevation: 0,
             padding: EdgeInsets.zero,
@@ -733,7 +737,16 @@ class _ClassJoinButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: const Icon(Icons.arrow_forward_rounded, size: 26),
+          child: busy
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.arrow_forward_rounded, size: 26),
         ),
       ),
     );

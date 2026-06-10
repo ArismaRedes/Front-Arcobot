@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
+import 'package:front_arcobot/core/widgets/arco_character.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
+import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -47,19 +50,10 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: ArcobotColors.guideTurquoise,
-                          boxShadow: ArcobotShadows.soft,
-                        ),
-                        child: const Icon(
-                          Icons.smart_toy_rounded,
-                          color: Colors.white,
-                          size: 30,
-                        ),
+                      const ArcoCharacterView(
+                        character: ArcoCharacter.bussy,
+                        mood: ArcoMood.happy,
+                        size: 56,
                       ),
                       const SizedBox(width: ArcobotSpacing.sm),
                       Expanded(
@@ -89,13 +83,18 @@ class DashboardScreen extends ConsumerWidget {
                         onPressed: () =>
                             ref.read(authControllerProvider.notifier).signOut(),
                         icon: const Icon(Icons.logout_rounded),
-                        tooltip: 'Cerrar sesion',
+                        tooltip: 'Cerrar sesión',
                         style: IconButton.styleFrom(
                           backgroundColor: const Color(0xFFEFF4FF),
                           foregroundColor: ArcobotColors.skyBlue,
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: ArcobotSpacing.lg),
+                  _CreateSessionCard(
+                    onPressed: () =>
+                        context.go(TeacherSessionScreen.routePath),
                   ),
                   const SizedBox(height: ArcobotSpacing.lg),
                   Container(
@@ -120,7 +119,7 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: ArcobotSpacing.xs),
                         Text(
-                          'Te faltan 2 retos para encender la Isla Numeros',
+                          'Te faltan 2 retos para encender la Isla Números',
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: const Color(0xFFF1F8FF),
                           ),
@@ -166,7 +165,7 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         SizedBox(width: ArcobotSpacing.sm),
                         _WorldCard(
-                          title: 'Numeros',
+                          title: 'Números',
                           subtitle: '8 actividades',
                           color: Color(0xFF3A86FF),
                           icon: Icons.calculate_rounded,
@@ -182,7 +181,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: ArcobotSpacing.lg),
-                  Text('Actividades rapidas',
+                  Text('Actividades rápidas',
                       style: theme.textTheme.titleLarge),
                   const SizedBox(height: ArcobotSpacing.sm),
                   Wrap(
@@ -265,6 +264,80 @@ String? _humanizeRole(String? role) {
       return 'Miembro';
     default:
       return role.trim();
+  }
+}
+
+class _CreateSessionCard extends StatelessWidget {
+  const _CreateSessionCard({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(ArcobotRadii.lg),
+          border: Border.all(color: ArcobotColors.softBorder),
+          boxShadow: ArcobotShadows.soft,
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(ArcobotRadii.lg),
+          child: Padding(
+            padding: const EdgeInsets.all(ArcobotSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6F7F5),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.cast_for_education_rounded,
+                    color: ArcobotColors.guideTurquoise,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: ArcobotSpacing.sm),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Crear sesión de aula',
+                        style: TextStyle(
+                          color: ArcobotColors.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'PIN + QR para que tus estudiantes entren',
+                        style: TextStyle(
+                          color: ArcobotColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: ArcobotColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

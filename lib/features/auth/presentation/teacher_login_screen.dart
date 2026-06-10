@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:front_arcobot/core/theme/app_theme.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
@@ -62,51 +63,54 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final compact = screenWidth < 440;
 
-    return Scaffold(
-      backgroundColor: _Palette.bg,
-      body: CustomPaint(
-        painter: const _GridPainter(),
-        child: Stack(
-          children: [
-            const Positioned(
-              top: -140,
-              right: -100,
-              child: _Blob(size: 420, color: Color(0x2819BFB7)),
-            ),
-            const Positioned(
-              bottom: -160,
-              left: -120,
-              child: _Blob(size: 400, color: Color(0x281A4A68)),
-            ),
-            SafeArea(
-              child: Align(
-                alignment: const Alignment(0, -0.2),
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 16 : 24,
-                    vertical: 32,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: _LoginCard(
-                      emailController: _emailController,
-                      loading: loading,
-                      emailError: _emailError,
-                      errorMessage: authState.errorMessage,
-                      onBack: () => context.go(LoginScreen.routePath),
-                      onEmailSubmitted: _submitEmail,
-                      onGoogleSignIn: () => ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithGoogle(),
-                      onFacebookSignIn: () => ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithFacebook(),
+    return Theme(
+      data: AppTheme.dark,
+      child: Scaffold(
+        backgroundColor: _Palette.bg,
+        body: CustomPaint(
+          painter: const _GridPainter(),
+          child: Stack(
+            children: [
+              const Positioned(
+                top: -140,
+                right: -100,
+                child: _Blob(size: 420, color: Color(0x2819BFB7)),
+              ),
+              const Positioned(
+                bottom: -160,
+                left: -120,
+                child: _Blob(size: 400, color: Color(0x281A4A68)),
+              ),
+              SafeArea(
+                child: Align(
+                  alignment: const Alignment(0, -0.2),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 16 : 24,
+                      vertical: 32,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: _LoginCard(
+                        emailController: _emailController,
+                        loading: loading,
+                        emailError: _emailError,
+                        errorMessage: authState.errorMessage,
+                        onBack: () => context.go(LoginScreen.routePath),
+                        onEmailSubmitted: _submitEmail,
+                        onGoogleSignIn: () => ref
+                            .read(authControllerProvider.notifier)
+                            .signInWithGoogle(),
+                        onFacebookSignIn: () => ref
+                            .read(authControllerProvider.notifier)
+                            .signInWithFacebook(),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -478,7 +482,8 @@ class _EmailField extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _Palette.border, width: 0.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       ),
       onSubmitted: onSubmitted,
     );

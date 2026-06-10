@@ -11,7 +11,8 @@ class ClassCodeScannerScreen extends StatefulWidget {
 }
 
 class _ClassCodeScannerScreenState extends State<ClassCodeScannerScreen> {
-  static final _codePattern = RegExp(r'^[a-zA-Z0-9]{4,8}$');
+  // PIN de clase: 6 dígitos (mismo formato que genera el backend).
+  static final _codePattern = RegExp(r'^\d{6}$');
 
   final MobileScannerController _controller = MobileScannerController();
   bool _handled = false;
@@ -43,7 +44,7 @@ class _ClassCodeScannerScreenState extends State<ClassCodeScannerScreen> {
 
     _handled = true;
     HapticFeedback.mediumImpact();
-    Navigator.of(context).pop(rawValue.toUpperCase());
+    Navigator.of(context).pop(rawValue);
   }
 
   Future<void> _toggleTorch() async {

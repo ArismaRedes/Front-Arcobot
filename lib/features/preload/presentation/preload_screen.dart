@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/config/app_assets.dart';
+import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
@@ -85,7 +86,7 @@ class PreloadVisual extends StatelessWidget {
             'Cargando...',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF0B6E5E),
+              color: ArcobotColors.guideTurquoise,
             ),
           ),
         ],
