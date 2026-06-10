@@ -87,33 +87,33 @@ class AuthController extends StateNotifier<AuthState> {
     if (error is AppAuthException) {
       switch (error.code) {
         case AppAuthExceptionCode.invalidInput:
-          return 'No pudimos validar los datos. Revisa el correo y la contrasena.';
+          return 'No pudimos validar los datos. Revisa el correo y la contraseña.';
         case AppAuthExceptionCode.signInCancelled:
-          return 'Inicio de sesion cancelado.';
+          return 'Inicio de sesión cancelado.';
         case AppAuthExceptionCode.authCallbackFailed:
           return 'No pudimos completar el regreso a la app. Intenta nuevamente.';
         case AppAuthExceptionCode.sessionExpired:
-          return 'Tu sesion expiro. Inicia sesion nuevamente.';
+          return 'Tu sesión expiró. Inicia sesión nuevamente.';
         case AppAuthExceptionCode.backendUnauthorized:
-          return 'Sesion invalida o sin permisos en backend.';
+          return 'Sesión inválida o sin permisos.';
         case AppAuthExceptionCode.backendInvalidProfile:
-          return 'No pudimos leer el perfil del usuario desde backend.';
+          return 'No pudimos leer tu perfil de usuario. Intenta nuevamente.';
         case AppAuthExceptionCode.organizationMismatch:
-          return 'Tu cuenta no pertenece a la organizacion autorizada.';
+          return 'Tu cuenta no pertenece a la organización autorizada.';
       }
     }
 
     final normalized = error.toString().toLowerCase();
 
     if (normalized.contains('guard.invalid_input')) {
-      return 'No pudimos validar los datos. Revisa el correo y la contrasena.';
+      return 'No pudimos validar los datos. Revisa el correo y la contraseña.';
     }
 
     if (normalized.contains('invalid credentials') ||
         normalized.contains('invalid_password') ||
         normalized.contains('invalid_grant') ||
         normalized.contains('wrong password')) {
-      return 'Correo o contrasena incorrectos.';
+      return 'Correo o contraseña incorrectos.';
     }
 
     if (normalized.contains('account_not_found') ||
@@ -125,7 +125,7 @@ class AuthController extends StateNotifier<AuthState> {
         normalized.contains('cancel') ||
         normalized.contains('canceled') ||
         normalized.contains('user_cancelled')) {
-      return 'Inicio de sesion cancelado.';
+      return 'Inicio de sesión cancelado.';
     }
 
     if (normalized.contains('network') ||
@@ -139,12 +139,12 @@ class AuthController extends StateNotifier<AuthState> {
     if (normalized.contains('/api/experience/submit') ||
         normalized.contains('callback') ||
         normalized.contains('redirect')) {
-      return 'No se pudo completar el inicio de sesion. Intenta nuevamente.';
+      return 'No se pudo completar el inicio de sesión. Intenta nuevamente.';
     }
 
     if (normalized.contains('organizacion configurada') ||
         normalized.contains('organization')) {
-      return 'Tu cuenta no pertenece a la organizacion autorizada.';
+      return 'Tu cuenta no pertenece a la organización autorizada.';
     }
 
     if (flow == _AuthFlow.signInWithFacebook) {
@@ -154,12 +154,12 @@ class AuthController extends StateNotifier<AuthState> {
       return 'No se pudo iniciar con Google. Intenta nuevamente.';
     }
     if (flow == _AuthFlow.signOut) {
-      return 'No se pudo cerrar sesion. Intenta nuevamente.';
+      return 'No se pudo cerrar sesión. Intenta nuevamente.';
     }
     if (flow == _AuthFlow.restoreSession) {
-      return 'No pudimos restaurar tu sesion. Inicia sesion nuevamente.';
+      return 'No pudimos restaurar tu sesión. Inicia sesión nuevamente.';
     }
-    return 'No se pudo iniciar sesion. Intenta nuevamente.';
+    return 'No se pudo iniciar sesión. Intenta nuevamente.';
   }
 
   Future<void> restoreSession() async {
@@ -253,7 +253,7 @@ class AuthController extends StateNotifier<AuthState> {
     state = AuthState(
       status: AuthStatus.unauthenticated,
       errorMessage:
-          errorMessage ?? 'Tu sesion expiro. Inicia sesion nuevamente.',
+          errorMessage ?? 'Tu sesión expiró. Inicia sesión nuevamente.',
     );
   }
 

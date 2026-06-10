@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
 
 class AccessDeniedScreen extends StatelessWidget {
@@ -13,7 +14,7 @@ class AccessDeniedScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F3EE),
+      backgroundColor: ArcobotColors.backgroundCloud,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -25,7 +26,7 @@ class AccessDeniedScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE0DDD7)),
+                  border: Border.all(color: ArcobotColors.softBorder),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -47,7 +48,7 @@ class AccessDeniedScreen extends StatelessWidget {
                     Text(
                       'Sin acceso',
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        color: const Color(0xFF1A2E44),
+                        color: ArcobotColors.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -63,7 +64,7 @@ class AccessDeniedScreen extends StatelessWidget {
                       onPressed: () => context.go(LoginScreen.routePath),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),
-                        backgroundColor: const Color(0xFF1A2E44),
+                        backgroundColor: ArcobotColors.guideTurquoise,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),

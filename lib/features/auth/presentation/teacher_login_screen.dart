@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/login_screen.dart';
 import 'package:go_router/go_router.dart';
+
+final _emailRegExp = RegExp(r'^[\w.+-]+@[\w-]+(\.[\w-]+)+$');
 
 class TeacherLoginScreen extends ConsumerStatefulWidget {
   const TeacherLoginScreen({super.key});
@@ -17,11 +20,17 @@ class TeacherLoginScreen extends ConsumerStatefulWidget {
 
 class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
   late final TextEditingController _emailController;
+  String? _emailError;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
+    _emailController.addListener(() {
+      if (_emailError != null) {
+        setState(() => _emailError = null);
+      }
+    });
   }
 
   @override
@@ -32,12 +41,17 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
 
   Future<void> _submitEmail() async {
     final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa un correo valido')),
+    if (email.isEmpty) {
+      setState(() => _emailError = 'Escribe tu correo institucional.');
+      return;
+    }
+    if (!_emailRegExp.hasMatch(email)) {
+      setState(
+        () => _emailError = 'Ese correo no parece válido. Revísalo.',
       );
       return;
     }
+    setState(() => _emailError = null);
     await ref.read(authControllerProvider.notifier).signInWithEmail(email);
   }
 
@@ -57,7 +71,7 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
             const Positioned(
               top: -140,
               right: -100,
-              child: _Blob(size: 420, color: Color(0x284ECBA0)),
+              child: _Blob(size: 420, color: Color(0x2819BFB7)),
             ),
             const Positioned(
               bottom: -160,
@@ -77,6 +91,7 @@ class _TeacherLoginScreenState extends ConsumerState<TeacherLoginScreen> {
                     child: _LoginCard(
                       emailController: _emailController,
                       loading: loading,
+                      emailError: _emailError,
                       errorMessage: authState.errorMessage,
                       onBack: () => context.go(LoginScreen.routePath),
                       onEmailSubmitted: _submitEmail,
@@ -102,6 +117,7 @@ class _LoginCard extends StatelessWidget {
   const _LoginCard({
     required this.emailController,
     required this.loading,
+    required this.emailError,
     required this.errorMessage,
     required this.onBack,
     required this.onEmailSubmitted,
@@ -111,6 +127,7 @@ class _LoginCard extends StatelessWidget {
 
   final TextEditingController emailController;
   final bool loading;
+  final String? emailError;
   final String? errorMessage;
   final VoidCallback onBack;
   final VoidCallback onEmailSubmitted;
@@ -159,7 +176,7 @@ class _LoginCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Inicia sesion para gestionar tus estudiantes.',
+            'Inicia sesión para gestionar tus estudiantes.',
             style: TextStyle(
               color: _Palette.subtle,
               fontSize: 13,
@@ -184,11 +201,12 @@ class _LoginCard extends StatelessWidget {
           _EmailField(
             controller: emailController,
             enabled: !loading,
+            errorText: emailError,
             onSubmitted: (_) => onEmailSubmitted(),
           ),
           const SizedBox(height: 8),
           const Text(
-            'La contrasena se ingresara de forma segura en Logto.',
+            'La contraseña se ingresará de forma segura en Logto.',
             style: TextStyle(
               color: _Palette.hint,
               fontSize: 12,
@@ -206,18 +224,18 @@ class _LoginCard extends StatelessWidget {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: _Palette.bg,
+                        color: _Palette.onAccent,
                       ),
                     )
                   : const Icon(
                       Icons.login_rounded,
-                      color: _Palette.bg,
+                      color: _Palette.onAccent,
                       size: 17,
                     ),
               style: FilledButton.styleFrom(
                 backgroundColor: _Palette.accent,
                 disabledBackgroundColor: _Palette.accent.withValues(alpha: 0.6),
-                foregroundColor: _Palette.bg,
+                foregroundColor: _Palette.onAccent,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -287,7 +305,7 @@ class _Brand extends StatelessWidget {
           child: const Text(
             'AB',
             style: TextStyle(
-              color: _Palette.bg,
+              color: _Palette.onAccent,
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.3,
@@ -360,9 +378,9 @@ class _ErrorBox extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF3A1A1A),
+        color: ArcobotPanelColors.errorSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF6B2A2A), width: 0.5),
+        border: Border.all(color: ArcobotPanelColors.errorBorder, width: 0.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,7 +389,7 @@ class _ErrorBox extends StatelessWidget {
             padding: EdgeInsets.only(top: 1),
             child: Icon(
               Icons.error_outline_rounded,
-              color: Color(0xFFF0857A),
+              color: ArcobotPanelColors.errorText,
               size: 15,
             ),
           ),
@@ -380,7 +398,7 @@ class _ErrorBox extends StatelessWidget {
             child: Text(
               message,
               style: const TextStyle(
-                color: Color(0xFFF0857A),
+                color: ArcobotPanelColors.errorText,
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -396,11 +414,13 @@ class _EmailField extends StatelessWidget {
   const _EmailField({
     required this.controller,
     required this.enabled,
+    required this.errorText,
     required this.onSubmitted,
   });
 
   final TextEditingController controller;
   final bool enabled;
+  final String? errorText;
   final ValueChanged<String> onSubmitted;
 
   @override
@@ -410,6 +430,8 @@ class _EmailField extends StatelessWidget {
       enabled: enabled,
       keyboardType: TextInputType.emailAddress,
       textInputAction: TextInputAction.done,
+      autofillHints: const [AutofillHints.email],
+      autocorrect: false,
       style: const TextStyle(
         color: Color(0xFFE8F0F8),
         fontSize: 14,
@@ -418,6 +440,25 @@ class _EmailField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: 'tu.correo@institucion.edu',
         hintStyle: const TextStyle(color: _Palette.hint, fontSize: 13),
+        errorText: errorText,
+        errorStyle: const TextStyle(
+          color: ArcobotPanelColors.errorText,
+          fontSize: 12,
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: ArcobotPanelColors.errorBorder,
+            width: 1,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: ArcobotPanelColors.errorText,
+            width: 1,
+          ),
+        ),
         prefixIcon: const Icon(
           Icons.mail_outline_rounded,
           color: _Palette.subtle,
@@ -457,7 +498,7 @@ class _Divider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'o tambien',
+            'o continúa con',
             style: TextStyle(
               color: _Palette.hint,
               fontSize: 11,
@@ -548,13 +589,14 @@ class _GridPainter extends CustomPainter {
 class _Palette {
   const _Palette._();
 
-  static const bg = Color(0xFF0F1E2E);
-  static const card = Color(0xFF162536);
-  static const border = Color(0xFF2A3F55);
-  static const input = Color(0xFF1E3347);
-  static const accent = Color(0xFF4ECBA0);
-  static const subtle = Color(0xFF5A7A96);
-  static const hint = Color(0xFF3A5570);
+  static const bg = ArcobotPanelColors.bg;
+  static const card = ArcobotPanelColors.card;
+  static const border = ArcobotPanelColors.border;
+  static const input = ArcobotPanelColors.input;
+  static const accent = ArcobotPanelColors.accent;
+  static const onAccent = ArcobotPanelColors.onAccent;
+  static const subtle = ArcobotPanelColors.subtle;
+  static const hint = ArcobotPanelColors.hint;
 }
 
 const String _googleSvg = '''

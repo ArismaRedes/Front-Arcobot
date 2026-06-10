@@ -27,6 +27,55 @@ class ArcobotColors {
   ];
 }
 
+/// Paleta para pantallas de niños (pre-lectores y lectores tempranos).
+/// Colores saturados, alegres y de alto contraste sobre fondos claros.
+class ArcobotKidColors {
+  const ArcobotKidColors._();
+
+  static const Color action = ArcobotColors.guideTurquoise;
+  static const Color actionDark = Color(0xFF0E9C95);
+  static const Color textPrimary = Color(0xFF1A2E44);
+  static const Color textSecondary = Color(0xFF6B7E95);
+
+  static const Color bubbleBlue = Color(0xFFBFE3FF);
+  static const Color bubbleMint = Color(0xFFB5F0E4);
+  static const Color bubbleSun = Color(0xFFFFE9B8);
+  static const Color bubblePink = Color(0xFFFFD6EC);
+
+  static const Color errorSurface = Color(0xFFFFF3ED);
+  static const Color errorBorder = Color(0xFFFFD7C8);
+  static const Color errorText = Color(0xFFC95A2B);
+
+  static const List<Color> screenGradient = [
+    Color(0xFFE8F4FF),
+    Color(0xFFEDF9FF),
+    Color(0xFFE6FFF6),
+  ];
+
+  static const List<Color> actionGradient = [
+    Color(0xFF2BD4CB),
+    Color(0xFF15A8A1),
+  ];
+}
+
+/// Paleta oscura para el panel de adultos (docentes y admins).
+class ArcobotPanelColors {
+  const ArcobotPanelColors._();
+
+  static const Color bg = Color(0xFF0F1E2E);
+  static const Color card = Color(0xFF162536);
+  static const Color border = Color(0xFF2A3F55);
+  static const Color input = Color(0xFF1E3347);
+  static const Color accent = ArcobotColors.guideTurquoise;
+  static const Color onAccent = Color(0xFF06302D);
+  static const Color textOnDark = Color(0xFFE8F0F8);
+  static const Color subtle = Color(0xFF7C97B2);
+  static const Color hint = Color(0xFF4A6580);
+  static const Color errorSurface = Color(0xFF3A1A1A);
+  static const Color errorBorder = Color(0xFF6B2A2A);
+  static const Color errorText = Color(0xFFF0857A);
+}
+
 class ArcobotSpacing {
   const ArcobotSpacing._();
 
