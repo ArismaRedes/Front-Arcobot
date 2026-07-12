@@ -88,6 +88,7 @@ class SessionRepository {
     required String outcome,
     required int cardsUsed,
     Map<String, dynamic>? snapshot,
+    int? durationMs,
   }) async {
     try {
       await _dio.post<void>(
@@ -97,6 +98,7 @@ class SessionRepository {
           'trackName': trackName,
           'outcome': outcome,
           'cardsUsed': cardsUsed,
+          if (durationMs != null) 'durationMs': durationMs,
           if (snapshot != null) 'snapshot': snapshot,
         },
       );

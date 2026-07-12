@@ -74,6 +74,7 @@ class StudentSessionController
     required String outcome,
     required int cardsUsed,
     Map<String, dynamic>? snapshot,
+    int? durationMs,
   }) {
     final session = state.valueOrNull;
     if (session == null) {
@@ -88,6 +89,7 @@ class StudentSessionController
             outcome: outcome,
             cardsUsed: cardsUsed,
             snapshot: snapshot,
+            durationMs: durationMs,
           )
           .catchError(
             (Object error) => debugPrint('Reporte de progreso falló: $error'),

@@ -23,12 +23,13 @@ final simulatorProvider =
       levels: levels,
       onProgress: session == null
           ? null
-          : (trackName, outcome, cardsUsed, snapshot) =>
+          : (trackName, outcome, cardsUsed, snapshot, durationMs) =>
               ref.read(studentSessionProvider.notifier).reportProgress(
                     trackName: trackName,
                     outcome: outcome,
                     cardsUsed: cardsUsed,
                     snapshot: snapshot,
+                    durationMs: durationMs,
                   ),
     );
   },
@@ -39,6 +40,7 @@ typedef SimProgressReporter = void Function(
   String outcome,
   int cardsUsed,
   Map<String, dynamic>? snapshot,
+  int? durationMs,
 );
 
 enum SimPhase { editing, running, success, blocked }
@@ -147,6 +149,10 @@ class SimulatorController extends StateNotifier<SimulatorState> {
   DateTime _lastLiveReport = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _liveTimer;
 
+  /// Arranque del nivel: mide cuánto tarda el niño en resolverlo
+  /// (alimenta el premio "más rápido" del reporte de la clase).
+  DateTime _levelStartedAt = DateTime.now();
+
   /// Réplica mínima de la pantalla del niño para el "ojo" del docente.
   Map<String, dynamic> _snapshot() {
     final level = state.level;
@@ -172,7 +178,16 @@ class SimulatorController extends StateNotifier<SimulatorState> {
     _liveTimer?.cancel();
     _liveTimer = null;
     _lastLiveReport = DateTime.now();
-    onProgress?.call(state.level.name, outcome, cardsUsed, _snapshot());
+    final durationMs = outcome == 'success' || outcome == 'blocked'
+        ? DateTime.now().difference(_levelStartedAt).inMilliseconds
+        : null;
+    onProgress?.call(
+      state.level.name,
+      outcome,
+      cardsUsed,
+      _snapshot(),
+      durationMs,
+    );
   }
 
   /// Snapshot 'playing' con throttle: inmediato si pasó la ventana; si no,
@@ -195,6 +210,7 @@ class SimulatorController extends StateNotifier<SimulatorState> {
   }
 
   void _reportLevelStart() {
+    _levelStartedAt = DateTime.now();
     if (onProgress != null) {
       _send('playing');
     }

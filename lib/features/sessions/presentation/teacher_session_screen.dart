@@ -5,8 +5,11 @@ import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/core/widgets/arco_avatar.dart';
 import 'package:front_arcobot/core/widgets/arco_character.dart';
 import 'package:front_arcobot/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:front_arcobot/features/sessions/data/group_repository.dart';
 import 'package:front_arcobot/features/sessions/domain/session_models.dart';
+import 'package:front_arcobot/features/sessions/presentation/groups_provider.dart';
 import 'package:front_arcobot/features/sessions/presentation/live_board_view.dart';
+import 'package:front_arcobot/features/sessions/presentation/session_report_dialog.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_provider.dart';
 import 'package:front_arcobot/features/simulator/presentation/command_blocks.dart';
 import 'package:front_arcobot/features/tracks/domain/track_models.dart';
@@ -32,6 +35,7 @@ class TeacherSessionScreen extends ConsumerStatefulWidget {
 class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
   late final TextEditingController _nameController;
   final Set<String> _selectedTrackIds = {};
+  String? _selectedGroupId;
   _SessionViewMode _viewMode = _SessionViewMode.projection;
 
   @override
@@ -59,6 +63,7 @@ class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
     final created = await ref.read(teacherSessionProvider.notifier).create(
           name: name.isEmpty ? 'Mi clase' : name,
           trackIds: trackIds,
+          groupId: _selectedGroupId,
         );
     if (created && mounted) {
       // Al crear, arranca proyectando el PIN para que la clase entre.
@@ -94,9 +99,79 @@ class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
     if (confirmed != true || !mounted) {
       return;
     }
-    await ref.read(teacherSessionProvider.notifier).end();
+    final report = await ref.read(teacherSessionProvider.notifier).end();
+    if (!mounted) {
+      return;
+    }
+    if (report != null) {
+      // Podio de la clase: proyectable para premiar a los niños.
+      await showSessionReportDialog(context, report);
+    }
     if (mounted) {
       context.go(DashboardScreen.routePath);
+    }
+  }
+
+  Future<void> _createGroup() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => Theme(
+        data: AppTheme.dark,
+        child: AlertDialog(
+          backgroundColor: ArcobotPanelColors.card,
+          title: const Text(
+            'Nuevo grupo',
+            style: TextStyle(
+              color: ArcobotPanelColors.textOnDark,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 60,
+            style: const TextStyle(
+              color: ArcobotPanelColors.textOnDark,
+              fontSize: 14,
+            ),
+            decoration: const InputDecoration(
+              hintText: 'Ej. 2°B',
+              counterText: '',
+            ),
+            onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('Crear'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (name == null || name.isEmpty || !mounted) {
+      return;
+    }
+    try {
+      final group =
+          await ref.read(groupRepositoryProvider).createGroup(name);
+      ref.invalidate(groupsProvider);
+      if (mounted) {
+        setState(() => _selectedGroupId = group.id);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(TeacherSessionController.friendlyError(error))),
+        );
+      }
     }
   }
 
@@ -127,6 +202,9 @@ class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
       creating: state.status == TeacherSessionStatus.creating,
       errorMessage: state.errorMessage,
       selectedTrackIds: _selectedTrackIds,
+      selectedGroupId: _selectedGroupId,
+      onGroupChanged: (id) => setState(() => _selectedGroupId = id),
+      onCreateGroup: _createGroup,
       onToggleTrack: (id) => setState(() {
         if (!_selectedTrackIds.remove(id)) {
           _selectedTrackIds.add(id);
@@ -145,6 +223,9 @@ class _CreateView extends ConsumerWidget {
     required this.creating,
     required this.errorMessage,
     required this.selectedTrackIds,
+    required this.selectedGroupId,
+    required this.onGroupChanged,
+    required this.onCreateGroup,
     required this.onToggleTrack,
     required this.onCreate,
     required this.onBack,
@@ -154,6 +235,9 @@ class _CreateView extends ConsumerWidget {
   final bool creating;
   final String? errorMessage;
   final Set<String> selectedTrackIds;
+  final String? selectedGroupId;
+  final ValueChanged<String?> onGroupChanged;
+  final VoidCallback onCreateGroup;
   final ValueChanged<String> onToggleTrack;
   final VoidCallback onCreate;
   final VoidCallback onBack;
@@ -265,6 +349,23 @@ class _CreateView extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     const Text(
+                      'GRUPO (OPCIONAL)',
+                      style: TextStyle(
+                        color: ArcobotPanelColors.subtle,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _GroupPicker(
+                      selectedGroupId: selectedGroupId,
+                      enabled: !creating,
+                      onChanged: onGroupChanged,
+                      onCreateGroup: onCreateGroup,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
                       'PISTAS DE LA SESIÓN',
                       style: TextStyle(
                         color: ArcobotPanelColors.subtle,
@@ -310,6 +411,80 @@ class _CreateView extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Selector del grupo (curso) al que pertenece la clase. Las clases del
+/// grupo acumulan historial y analíticas.
+class _GroupPicker extends ConsumerWidget {
+  const _GroupPicker({
+    required this.selectedGroupId,
+    required this.enabled,
+    required this.onChanged,
+    required this.onCreateGroup,
+  });
+
+  final String? selectedGroupId;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+  final VoidCallback onCreateGroup;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final groupsState = ref.watch(groupsProvider);
+
+    return groupsState.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (_, __) => const Text(
+        'No se pudieron cargar tus grupos.',
+        style: TextStyle(color: ArcobotPanelColors.hint, fontSize: 12.5),
+      ),
+      data: (groups) => Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String?>(
+              initialValue: selectedGroupId,
+              onChanged: enabled ? onChanged : null,
+              dropdownColor: ArcobotPanelColors.card,
+              style: const TextStyle(
+                color: ArcobotPanelColors.textOnDark,
+                fontSize: 14,
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text(
+                    'Sin grupo (clase suelta)',
+                    style: TextStyle(color: ArcobotPanelColors.subtle),
+                  ),
+                ),
+                for (final group in groups)
+                  DropdownMenuItem<String?>(
+                    value: group.id,
+                    child: Text(group.name),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Crear grupo',
+            onPressed: enabled ? onCreateGroup : null,
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: ArcobotColors.guideTurquoise,
+            ),
+          ),
+        ],
       ),
     );
   }

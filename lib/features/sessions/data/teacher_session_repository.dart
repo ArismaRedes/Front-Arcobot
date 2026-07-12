@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/network/api_client.dart';
 import 'package:front_arcobot/core/realtime/realtime_ticket.dart';
 import 'package:front_arcobot/features/sessions/data/session_repository.dart';
+import 'package:front_arcobot/features/sessions/domain/report_models.dart';
 import 'package:front_arcobot/features/sessions/domain/session_models.dart';
 
 final teacherSessionRepositoryProvider =
@@ -41,11 +42,16 @@ class TeacherSessionRepository {
   Future<ClassSessionInfo> createSession({
     required String name,
     List<String> trackIds = const [],
+    String? groupId,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/sessions',
-        data: {'name': name, 'trackIds': trackIds},
+        data: {
+          'name': name,
+          'trackIds': trackIds,
+          if (groupId != null) 'groupId': groupId,
+        },
       );
       return ClassSessionInfo.fromJson(
         response.data!['data'] as Map<String, dynamic>,
@@ -83,9 +89,29 @@ class TeacherSessionRepository {
     }
   }
 
-  Future<void> endSession(String pin) async {
+  /// Termina la clase. El backend genera y devuelve las analíticas
+  /// (podio y premios) para mostrarlas de inmediato.
+  Future<SessionReportStats?> endSession(String pin) async {
     try {
-      await _dio.delete<void>('/api/v1/sessions/$pin');
+      final response =
+          await _dio.delete<Map<String, dynamic>>('/api/v1/sessions/$pin');
+      final data = response.data?['data'];
+      return data is Map<String, dynamic>
+          ? SessionReportStats.fromJson(data)
+          : null;
+    } on DioException catch (error) {
+      _throwFrom(error);
+    }
+  }
+
+  /// Reporte persistido de una clase (disponible aún después de terminarla).
+  Future<SessionReportStats> getSessionReport(String pin) async {
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('/api/v1/sessions/$pin/report');
+      return SessionReportStats.fromJson(
+        response.data!['data'] as Map<String, dynamic>,
+      );
     } on DioException catch (error) {
       _throwFrom(error);
     }

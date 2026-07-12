@@ -4,6 +4,7 @@ import 'package:front_arcobot/core/theme/app_theme.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
 import 'package:front_arcobot/features/sessions/domain/session_models.dart';
+import 'package:front_arcobot/features/sessions/presentation/groups_screen.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_provider.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
 import 'package:front_arcobot/features/simulator/presentation/simulator_screen.dart';
@@ -84,6 +85,14 @@ class DashboardScreen extends ConsumerWidget {
                                       '${trackCount == 1 ? '' : 's'} guardada'
                                       '${trackCount == 1 ? '' : 's'}',
                           onTap: () => context.go(TracksScreen.routePath),
+                        ),
+                        _ActionCard(
+                          icon: Icons.groups_rounded,
+                          iconColor: ArcobotColors.sunYellow,
+                          title: 'Mis grupos',
+                          subtitle: 'Historial de clases y analíticas '
+                              'por curso',
+                          onTap: () => context.go(GroupsScreen.routePath),
                         ),
                         _ActionCard(
                           icon: Icons.sports_esports_rounded,

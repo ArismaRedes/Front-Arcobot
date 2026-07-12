@@ -7,6 +7,7 @@ import 'package:front_arcobot/features/auth/presentation/auth_state.dart';
 import 'package:front_arcobot/features/auth/presentation/teacher_login_screen.dart';
 import 'package:front_arcobot/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:front_arcobot/features/preload/presentation/preload_screen.dart';
+import 'package:front_arcobot/features/sessions/presentation/groups_screen.dart';
 import 'package:front_arcobot/features/sessions/presentation/student_home_screen.dart';
 import 'package:front_arcobot/features/sessions/presentation/student_join_screen.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
@@ -63,6 +64,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: TracksScreen.routePath,
         builder: (_, __) => const TracksScreen(),
+      ),
+      GoRoute(
+        path: GroupsScreen.routePath,
+        builder: (_, __) => const GroupsScreen(),
       ),
       GoRoute(
         path: TrackEditorScreen.routePath,

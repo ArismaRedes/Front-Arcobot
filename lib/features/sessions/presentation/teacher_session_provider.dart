@@ -6,6 +6,7 @@ import 'package:front_arcobot/core/config/env.dart';
 import 'package:front_arcobot/core/realtime/realtime_client.dart';
 import 'package:front_arcobot/features/sessions/data/session_repository.dart';
 import 'package:front_arcobot/features/sessions/data/teacher_session_repository.dart';
+import 'package:front_arcobot/features/sessions/domain/report_models.dart';
 import 'package:front_arcobot/features/sessions/domain/session_models.dart';
 
 final teacherSessionProvider =
@@ -93,6 +94,7 @@ class TeacherSessionController extends StateNotifier<TeacherSessionState> {
   Future<bool> create({
     required String name,
     List<String> trackIds = const [],
+    String? groupId,
   }) async {
     state = state.copyWith(
       status: TeacherSessionStatus.creating,
@@ -102,6 +104,7 @@ class TeacherSessionController extends StateNotifier<TeacherSessionState> {
       final session = await _repository.createSession(
         name: name,
         trackIds: trackIds,
+        groupId: groupId,
       );
       state = TeacherSessionState(
         status: TeacherSessionStatus.active,
@@ -253,21 +256,24 @@ class TeacherSessionController extends StateNotifier<TeacherSessionState> {
     }
   }
 
-  Future<void> end() async {
+  /// Termina la clase y devuelve las analíticas para mostrar el podio.
+  Future<SessionReportStats?> end() async {
     final pin = state.session?.pin;
     if (pin == null) {
-      return;
+      return null;
     }
     _stopPolling();
     await _realtime.stop();
     state = state.copyWith(status: TeacherSessionStatus.ending);
+    SessionReportStats? report;
     try {
-      await _repository.endSession(pin);
+      report = await _repository.endSession(pin);
     } catch (error) {
       debugPrint('No se pudo cerrar la sesión en backend: $error');
       // La sesión expira sola por TTL; no bloqueamos al docente.
     }
     state = const TeacherSessionState();
+    return report;
   }
 
   void _stopPolling() {
