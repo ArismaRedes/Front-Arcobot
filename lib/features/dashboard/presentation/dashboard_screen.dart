@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:front_arcobot/core/theme/app_theme.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
-import 'package:front_arcobot/core/widgets/arco_character.dart';
 import 'package:front_arcobot/features/auth/presentation/auth_provider.dart';
+import 'package:front_arcobot/features/sessions/domain/session_models.dart';
+import 'package:front_arcobot/features/sessions/presentation/teacher_session_provider.dart';
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
 import 'package:front_arcobot/features/simulator/presentation/simulator_screen.dart';
+import 'package:front_arcobot/features/tracks/presentation/tracks_provider.dart';
+import 'package:front_arcobot/features/tracks/presentation/tracks_screen.dart';
 import 'package:go_router/go_router.dart';
 
+/// Panel del docente: crear sesiones de aula, diseñar pistas y hacer
+/// seguimiento de la clase. Tema oscuro profesional (no infantil).
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -14,236 +20,108 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final authState = ref.watch(authControllerProvider);
+    final sessionState = ref.watch(teacherSessionProvider);
+    final tracksState = ref.watch(tracksProvider);
     final roleLabel = _humanizeRole(authState.primaryRole);
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: ArcobotColors.screenGradient,
-          ),
-        ),
-        child: Stack(
-          children: [
-            const Positioned(
-              top: -90,
-              right: -50,
-              child: _BackgroundBubble(
-                size: 220,
-                color: Color(0x333A86FF),
-              ),
-            ),
-            const Positioned(
-              bottom: -110,
-              left: -60,
-              child: _BackgroundBubble(
-                size: 260,
-                color: Color(0x3319BFB7),
-              ),
-            ),
-            SafeArea(
+    final trackCount = tracksState.valueOrNull?.length;
+    final hasActiveSession =
+        sessionState.status == TeacherSessionStatus.active &&
+            sessionState.session != null;
+
+    return Theme(
+      data: AppTheme.dark,
+      child: Scaffold(
+        backgroundColor: ArcobotPanelColors.bg,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
+                padding: const EdgeInsets.all(24),
                 children: [
-                  Row(
-                    children: [
-                      const ArcoCharacterView(
-                        character: ArcoCharacter.bussy,
-                        mood: ArcoMood.happy,
-                        size: 56,
-                      ),
-                      const SizedBox(width: ArcobotSpacing.sm),
-                      Expanded(
-                        child: Column(
+                  _Header(
+                    roleLabel: roleLabel,
+                    onSignOut: () =>
+                        ref.read(authControllerProvider.notifier).signOut(),
+                  ),
+                  const SizedBox(height: 24),
+                  if (hasActiveSession) ...[
+                    _ActiveSessionBanner(
+                      session: sessionState.session!,
+                      studentCount: sessionState.students.length,
+                      onOpen: () => context.go(TeacherSessionScreen.routePath),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final wide = constraints.maxWidth >= 620;
+                      final cards = [
+                        _ActionCard(
+                          icon: Icons.cast_for_education_rounded,
+                          iconColor: ArcobotColors.guideTurquoise,
+                          title: hasActiveSession
+                              ? 'Sesión en curso'
+                              : 'Nueva sesión de aula',
+                          subtitle: hasActiveSession
+                              ? 'Vuelve al monitor de tu clase'
+                              : 'Genera un PIN y un QR para que tus '
+                                  'estudiantes entren',
+                          onTap: () =>
+                              context.go(TeacherSessionScreen.routePath),
+                        ),
+                        _ActionCard(
+                          icon: Icons.route_rounded,
+                          iconColor: ArcobotColors.skyBlue,
+                          title: 'Mis pistas',
+                          subtitle: trackCount == null
+                              ? 'Diseña los recorridos del robot'
+                              : trackCount == 0
+                                  ? 'Aún no tienes pistas. ¡Crea la primera!'
+                                  : '$trackCount pista'
+                                      '${trackCount == 1 ? '' : 's'} guardada'
+                                      '${trackCount == 1 ? '' : 's'}',
+                          onTap: () => context.go(TracksScreen.routePath),
+                        ),
+                        _ActionCard(
+                          icon: Icons.sports_esports_rounded,
+                          iconColor: ArcobotColors.gameLilac,
+                          title: 'Probar el simulador',
+                          subtitle: 'Juega como lo verán tus estudiantes',
+                          onTap: () => context.go(SimulatorScreen.routePath),
+                        ),
+                      ];
+
+                      if (wide) {
+                        return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Hola, explorador',
-                              style: theme.textTheme.titleLarge,
-                            ),
-                            Text(
-                              'Arcobot te guiará hoy',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            if (roleLabel != null)
-                              Text(
-                                'Rol: $roleLabel',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: ArcobotColors.textSecondary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                            for (final card in cards) ...[
+                              Expanded(child: card),
+                              if (card != cards.last) const SizedBox(width: 14),
+                            ],
                           ],
-                        ),
-                      ),
-                      IconButton.filledTonal(
-                        onPressed: () =>
-                            ref.read(authControllerProvider.notifier).signOut(),
-                        icon: const Icon(Icons.logout_rounded),
-                        tooltip: 'Cerrar sesión',
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFFEFF4FF),
-                          foregroundColor: ArcobotColors.skyBlue,
-                        ),
-                      ),
-                    ],
+                        );
+                      }
+                      return Column(
+                        children: [
+                          for (final card in cards) ...[
+                            card,
+                            if (card != cards.last) const SizedBox(height: 12),
+                          ],
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: ArcobotSpacing.lg),
-                  _CreateSessionCard(
-                    onPressed: () =>
-                        context.go(TeacherSessionScreen.routePath),
-                  ),
-                  const SizedBox(height: ArcobotSpacing.lg),
-                  Container(
-                    padding: const EdgeInsets.all(ArcobotSpacing.lg),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(ArcobotRadii.xl),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: ArcobotColors.heroGradient,
-                      ),
-                      boxShadow: ArcobotShadows.soft,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Continuar aventura',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: ArcobotSpacing.xs),
-                        Text(
-                          'Te faltan 2 retos para encender la Isla Números',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: const Color(0xFFF1F8FF),
-                          ),
-                        ),
-                        const SizedBox(height: ArcobotSpacing.md),
-                        ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(ArcobotRadii.pill),
-                          child: const LinearProgressIndicator(
-                            value: 0.68,
-                            minHeight: 14,
-                            backgroundColor: Color(0x66FFFFFF),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              ArcobotColors.sunYellow,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: ArcobotSpacing.md),
-                        FilledButton(
-                          onPressed: () =>
-                              context.go(SimulatorScreen.routePath),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: ArcobotColors.skyBlue,
-                          ),
-                          child: const Text('Jugar ahora'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: ArcobotSpacing.lg),
-                  Text('Mundos', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: ArcobotSpacing.sm),
-                  SizedBox(
-                    height: 168,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: const [
-                        _WorldCard(
-                          title: 'Letras',
-                          subtitle: '12 actividades',
-                          color: Color(0xFF55C271),
-                          icon: Icons.auto_stories_rounded,
-                        ),
-                        SizedBox(width: ArcobotSpacing.sm),
-                        _WorldCard(
-                          title: 'Números',
-                          subtitle: '8 actividades',
-                          color: Color(0xFF3A86FF),
-                          icon: Icons.calculate_rounded,
-                        ),
-                        SizedBox(width: ArcobotSpacing.sm),
-                        _WorldCard(
-                          title: 'Arte',
-                          subtitle: '6 actividades',
-                          color: Color(0xFFA78BFA),
-                          icon: Icons.palette_rounded,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: ArcobotSpacing.lg),
-                  Text('Actividades rápidas',
-                      style: theme.textTheme.titleLarge),
-                  const SizedBox(height: ArcobotSpacing.sm),
-                  Wrap(
-                    spacing: ArcobotSpacing.sm,
-                    runSpacing: ArcobotSpacing.sm,
-                    children: const [
-                      _ActivityCard(
-                        title: 'Emparejar letras',
-                        icon: Icons.abc_rounded,
-                        color: Color(0xFFE6F7F5),
-                      ),
-                      _ActivityCard(
-                        title: 'Contar figuras',
-                        icon: Icons.interests_rounded,
-                        color: Color(0xFFEAF2FF),
-                      ),
-                      _ActivityCard(
-                        title: 'Memoria visual',
-                        icon: Icons.grid_view_rounded,
-                        color: Color(0xFFF3ECFF),
-                      ),
-                      _ActivityCard(
-                        title: 'Colores y formas',
-                        icon: Icons.format_paint_rounded,
-                        color: Color(0xFFFFF4DF),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 24),
+                  const _HowItWorks(),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (_) {},
-        height: 76,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Inicio',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.public_outlined),
-            selectedIcon: Icon(Icons.public_rounded),
-            label: 'Mundos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events_rounded),
-            label: 'Premios',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Perfil',
-          ),
-        ],
       ),
     );
   }
@@ -269,189 +147,299 @@ String? _humanizeRole(String? role) {
   }
 }
 
-class _CreateSessionCard extends StatelessWidget {
-  const _CreateSessionCard({required this.onPressed});
+class _Header extends StatelessWidget {
+  const _Header({required this.roleLabel, required this.onSignOut});
 
-  final VoidCallback onPressed;
+  final String? roleLabel;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: ArcobotPanelColors.input,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: ArcobotPanelColors.border,
+              width: 0.5,
+            ),
+          ),
+          child: const Icon(
+            Icons.school_rounded,
+            color: ArcobotColors.guideTurquoise,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Panel del docente',
+                style: TextStyle(
+                  color: ArcobotPanelColors.textOnDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                roleLabel == null ? 'ArcoBot' : 'ArcoBot · $roleLabel',
+                style: const TextStyle(
+                  color: ArcobotPanelColors.subtle,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: onSignOut,
+          tooltip: 'Cerrar sesión',
+          icon: const Icon(Icons.logout_rounded, size: 20),
+          style: IconButton.styleFrom(
+            backgroundColor: ArcobotPanelColors.input,
+            foregroundColor: ArcobotPanelColors.subtle,
+            side: const BorderSide(
+              color: ArcobotPanelColors.border,
+              width: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActiveSessionBanner extends StatelessWidget {
+  const _ActiveSessionBanner({
+    required this.session,
+    required this.studentCount,
+    required this.onOpen,
+  });
+
+  final ClassSessionInfo session;
+  final int studentCount;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(ArcobotRadii.lg),
-          border: Border.all(color: ArcobotColors.softBorder),
-          boxShadow: ArcobotShadows.soft,
-        ),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(ArcobotRadii.lg),
-          child: Padding(
-            padding: const EdgeInsets.all(ArcobotSpacing.md),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6F7F5),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.cast_for_education_rounded,
-                    color: ArcobotColors.guideTurquoise,
-                    size: 26,
-                  ),
+      color: ArcobotColors.guideTurquoise.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: ArcobotColors.guideTurquoise.withValues(alpha: 0.45),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: ArcobotColors.successGreen,
                 ),
-                const SizedBox(width: ArcobotSpacing.sm),
-                const Expanded(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sesión en curso · ${session.name}',
+                      style: const TextStyle(
+                        color: ArcobotPanelColors.textOnDark,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'PIN ${session.pin} · $studentCount estudiante'
+                      '${studentCount == 1 ? '' : 's'} conectado'
+                      '${studentCount == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        color: ArcobotPanelColors.subtle,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: ArcobotColors.guideTurquoise,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: ArcobotPanelColors.card,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: ArcobotPanelColors.border,
+              width: 0.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: ArcobotPanelColors.textOnDark,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: ArcobotPanelColors.subtle,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HowItWorks extends StatelessWidget {
+  const _HowItWorks();
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = [
+      (
+        Icons.route_rounded,
+        'Diseña tus pistas',
+        'Marca inicio, meta y obstáculos en el tablero de 5×8.',
+      ),
+      (
+        Icons.cast_for_education_rounded,
+        'Crea la sesión',
+        'Elige las pistas, proyecta el PIN y tus estudiantes entran '
+            'sin cuenta.',
+      ),
+      (
+        Icons.monitor_heart_rounded,
+        'Sigue a cada niño',
+        'El monitor muestra en vivo qué pista juega cada estudiante, '
+            'sus intentos y logros.',
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: ArcobotPanelColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ArcobotPanelColors.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'CÓMO FUNCIONA',
+            style: TextStyle(
+              color: ArcobotPanelColors.subtle,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (final (index, step) in steps.indexed) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(step.$1, size: 18, color: ArcobotColors.guideTurquoise),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Crear sesión de aula',
-                        style: TextStyle(
-                          color: ArcobotColors.textPrimary,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
+                        step.$2,
+                        style: const TextStyle(
+                          color: ArcobotPanelColors.textOnDark,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'PIN + QR para que tus estudiantes entren',
-                        style: TextStyle(
-                          color: ArcobotColors.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                        step.$3,
+                        style: const TextStyle(
+                          color: ArcobotPanelColors.subtle,
+                          fontSize: 12.5,
+                          height: 1.4,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: ArcobotColors.textSecondary,
-                ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorldCard extends StatelessWidget {
-  const _WorldCard({
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 156,
-      padding: const EdgeInsets.all(ArcobotSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(ArcobotRadii.lg),
-        border: Border.all(color: ArcobotColors.softBorder),
-        boxShadow: ArcobotShadows.soft,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.15),
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const Spacer(),
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: ArcobotColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: ArcobotSpacing.xs),
-          Text(subtitle, style: theme.textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({
-    required this.title,
-    required this.icon,
-    required this.color,
-  });
-
-  final String title;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
-      child: Container(
-        padding: const EdgeInsets.all(ArcobotSpacing.md),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(ArcobotRadii.md),
-          border: Border.all(color: ArcobotColors.softBorder),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: ArcobotColors.textPrimary, size: 22),
-            const SizedBox(width: ArcobotSpacing.sm),
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyLarge?.copyWith(fontSize: 16),
-              ),
-            ),
+            if (index < steps.length - 1) const SizedBox(height: 12),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BackgroundBubble extends StatelessWidget {
-  const _BackgroundBubble({
-    required this.size,
-    required this.color,
-  });
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
+        ],
       ),
     );
   }

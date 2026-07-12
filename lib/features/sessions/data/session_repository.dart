@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/config/env.dart';
 import 'package:front_arcobot/features/sessions/domain/session_models.dart';
+import 'package:front_arcobot/features/tracks/domain/track_models.dart';
 
 final sessionRepositoryProvider = Provider<SessionRepository>((ref) {
   // Dio propio sin interceptor JWT: el estudiante no tiene cuenta Logto.
@@ -59,6 +60,45 @@ class SessionRepository {
           await _dio.get<Map<String, dynamic>>('/api/v1/sessions/$pin');
       return ClassSessionInfo.fromJson(
         response.data!['data'] as Map<String, dynamic>,
+      );
+    } on DioException catch (error) {
+      _throwFrom(error);
+    }
+  }
+
+  /// Pistas asignadas a la sesión (las que eligió el docente).
+  Future<List<TrackInfo>> fetchSessionTracks(String pin) async {
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('/api/v1/sessions/$pin/tracks');
+      final items = response.data!['data'] as List<dynamic>;
+      return items
+          .map((item) => TrackInfo.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      _throwFrom(error);
+    }
+  }
+
+  /// Reporta al docente qué está haciendo el estudiante en el simulador.
+  Future<void> reportProgress({
+    required String pin,
+    required String studentToken,
+    required String trackName,
+    required String outcome,
+    required int cardsUsed,
+    Map<String, dynamic>? snapshot,
+  }) async {
+    try {
+      await _dio.post<void>(
+        '/api/v1/sessions/$pin/progress',
+        data: {
+          'studentToken': studentToken,
+          'trackName': trackName,
+          'outcome': outcome,
+          'cardsUsed': cardsUsed,
+          if (snapshot != null) 'snapshot': snapshot,
+        },
       );
     } on DioException catch (error) {
       _throwFrom(error);

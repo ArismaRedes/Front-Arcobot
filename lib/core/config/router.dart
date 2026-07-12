@@ -12,6 +12,9 @@ import 'package:front_arcobot/features/sessions/presentation/student_join_screen
 import 'package:front_arcobot/features/sessions/presentation/teacher_session_screen.dart';
 import 'package:front_arcobot/features/simulator/presentation/simulator_screen.dart';
 import 'package:front_arcobot/features/superadmin/presentation/superadmin_screen.dart';
+import 'package:front_arcobot/features/tracks/domain/track_models.dart';
+import 'package:front_arcobot/features/tracks/presentation/track_editor_screen.dart';
+import 'package:front_arcobot/features/tracks/presentation/tracks_screen.dart';
 import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -56,6 +59,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: TeacherSessionScreen.routePath,
         builder: (_, __) => const TeacherSessionScreen(),
+      ),
+      GoRoute(
+        path: TracksScreen.routePath,
+        builder: (_, __) => const TracksScreen(),
+      ),
+      GoRoute(
+        path: TrackEditorScreen.routePath,
+        builder: (_, state) => TrackEditorScreen(
+          track: state.extra is TrackInfo ? state.extra as TrackInfo : null,
+        ),
       ),
       GoRoute(
         path: SimulatorScreen.routePath,

@@ -20,6 +20,7 @@ dependencies:
   lottie: ^3.3.2
   audioplayers: ^6.7.1
   qr_flutter: ^4.1.0
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   flutter_lints: ^5.0.0

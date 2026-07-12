@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/network/api_client.dart';
+import 'package:front_arcobot/core/realtime/realtime_ticket.dart';
 import 'package:front_arcobot/features/sessions/data/session_repository.dart';
 import 'package:front_arcobot/features/sessions/domain/session_models.dart';
 
@@ -37,11 +38,14 @@ class TeacherSessionRepository {
     throw SessionRepositoryException('UNKNOWN', error.message ?? 'Error');
   }
 
-  Future<ClassSessionInfo> createSession({required String name}) async {
+  Future<ClassSessionInfo> createSession({
+    required String name,
+    List<String> trackIds = const [],
+  }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/sessions',
-        data: {'name': name},
+        data: {'name': name, 'trackIds': trackIds},
       );
       return ClassSessionInfo.fromJson(
         response.data!['data'] as Map<String, dynamic>,
@@ -61,6 +65,19 @@ class TeacherSessionRepository {
           .map((item) =>
               SessionStudentInfo.fromJson(item as Map<String, dynamic>))
           .toList();
+    } on DioException catch (error) {
+      _throwFrom(error);
+    }
+  }
+
+  Future<RealtimeTicket> createLiveTicket(String pin) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/sessions/$pin/live-ticket',
+      );
+      return RealtimeTicket.fromJson(
+        response.data!['data'] as Map<String, dynamic>,
+      );
     } on DioException catch (error) {
       _throwFrom(error);
     }

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/core/widgets/arco_character.dart';
@@ -7,17 +9,52 @@ import 'package:front_arcobot/features/simulator/presentation/command_blocks.dar
 import 'package:front_arcobot/features/simulator/presentation/simulator_provider.dart';
 import 'package:go_router/go_router.dart';
 
-class SimulatorScreen extends ConsumerWidget {
+/// En móvil el juego se vive en horizontal: pantalla completa e inmersiva,
+/// tablero a la izquierda y tarjetas a la derecha, como una consola.
+bool get _isMobile =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
+
+bool _isWideLayout(Size size) => size.width >= 760 || size.width > size.height;
+
+class SimulatorScreen extends ConsumerStatefulWidget {
   const SimulatorScreen({super.key});
 
   static const routePath = '/play';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SimulatorScreen> createState() => _SimulatorScreenState();
+}
+
+class _SimulatorScreenState extends ConsumerState<SimulatorScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (_isMobile) {
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isMobile) {
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(simulatorProvider);
     final controller = ref.read(simulatorProvider.notifier);
     final size = MediaQuery.sizeOf(context);
-    final wide = size.width >= 760;
+    final wide = _isWideLayout(size);
 
     final board = BoardWidget(
       level: state.level,
@@ -44,22 +81,21 @@ class SimulatorScreen extends ConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.all(14),
+                // Tablero protagonista: llena la altura; panel de tarjetas
+                // con ancho fijo a la derecha. Sin espacios muertos.
                 child: wide
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Expanded(
-                            flex: 5,
+                          Expanded(child: Center(child: board)),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width:
+                                (size.width * 0.34).clamp(300.0, 420.0),
                             child: Center(
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 420),
-                                child: board,
-                              ),
+                              child: SingleChildScrollView(child: controls),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(flex: 6, child: controls),
                         ],
                       )
                     : Column(
@@ -150,7 +186,7 @@ class _ControlsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final editing = state.phase == SimPhase.editing;
-    final wide = MediaQuery.sizeOf(context).width >= 760;
+    final wide = _isWideLayout(MediaQuery.sizeOf(context));
 
     return Container(
       padding: const EdgeInsets.all(16),

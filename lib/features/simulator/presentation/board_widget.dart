@@ -4,6 +4,49 @@ import 'package:flutter/material.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/features/simulator/domain/board_model.dart';
 
+/// El tablero lógico es 5 columnas × 8 filas (requerimiento PDF), pero se
+/// dibuja rotado 90° horario para verse siempre apaisado: 8 de ancho × 5 de
+/// alto. Solo cambia el render; datos, pistas y simulación quedan intactos.
+const int kVisualCols = kBoardRows;
+const int kVisualRows = kBoardCols;
+
+/// Celda lógica → posición visual apaisada.
+Cell visualCell(Cell cell) => Cell(kBoardRows - 1 - cell.row, cell.col);
+
+/// Posición visual apaisada → celda lógica (para mapear taps del editor).
+Cell logicalCellFromVisual(Cell visual) =>
+    Cell(visual.row, kBoardRows - 1 - visual.col);
+
+/// Paleta del tablero: mismos dibujos (rocas, estrella, robot) con colores
+/// adaptados a quien mira — niño (claro) o docente (panel oscuro).
+class BoardStyle {
+  const BoardStyle({
+    required this.background,
+    required this.border,
+    required this.cellEven,
+    required this.gridLine,
+  });
+
+  final Color background;
+  final Color border;
+  final Color cellEven;
+  final Color gridLine;
+
+  static const BoardStyle kid = BoardStyle(
+    background: Colors.white,
+    border: ArcobotColors.softBorder,
+    cellEven: Color(0xFFF2F9F8),
+    gridLine: Color(0xFFDCEBE9),
+  );
+
+  static const BoardStyle panel = BoardStyle(
+    background: ArcobotPanelColors.bg,
+    border: ArcobotPanelColors.border,
+    cellEven: Color(0xFF1B2C3E),
+    gridLine: ArcobotPanelColors.border,
+  );
+}
+
 /// Tablero 5×8 con obstáculos, meta, línea fantasma y robot animado.
 /// Escala a cualquier tamaño (móvil táctil y web con mouse).
 class BoardWidget extends StatelessWidget {
@@ -14,6 +57,8 @@ class BoardWidget extends StatelessWidget {
     required this.showGhost,
     required this.celebrating,
     required this.crashed,
+    this.style = BoardStyle.kid,
+    this.borderRadius = 18,
     super.key,
   });
 
@@ -23,23 +68,25 @@ class BoardWidget extends StatelessWidget {
   final bool showGhost;
   final bool celebrating;
   final bool crashed;
+  final BoardStyle style;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: kBoardCols / kBoardRows,
+      aspectRatio: kVisualCols / kVisualRows,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final cellSize = constraints.maxWidth / kBoardCols;
+          final cellSize = constraints.maxWidth / kVisualCols;
           return DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: ArcobotColors.softBorder, width: 2),
+              color: style.background,
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(color: style.border, width: 2),
               boxShadow: ArcobotShadows.soft,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(borderRadius - 2),
               child: Stack(
                 children: [
                   Positioned.fill(
@@ -47,6 +94,7 @@ class BoardWidget extends StatelessWidget {
                       painter: _BoardPainter(
                         level: level,
                         ghostCells: showGhost ? ghostCells : const [],
+                        style: style,
                       ),
                     ),
                   ),
@@ -74,9 +122,10 @@ class BoardWidget extends StatelessWidget {
   }
 
   Alignment _cellAlignment(Cell cell) {
-    // Alignment va de -1 a 1; mapear índice de celda a su centro.
-    final x = kBoardCols == 1 ? 0.0 : (cell.col / (kBoardCols - 1)) * 2 - 1;
-    final y = kBoardRows == 1 ? 0.0 : (cell.row / (kBoardRows - 1)) * 2 - 1;
+    // Alignment va de -1 a 1; mapear índice de celda visual a su centro.
+    final visual = visualCell(cell);
+    final x = kVisualCols == 1 ? 0.0 : (visual.col / (kVisualCols - 1)) * 2 - 1;
+    final y = kVisualRows == 1 ? 0.0 : (visual.row / (kVisualRows - 1)) * 2 - 1;
     return Alignment(x, y);
   }
 }
@@ -104,7 +153,8 @@ class _RobotSprite extends StatelessWidget {
         scale: celebrating ? 1.12 : 1,
         duration: const Duration(milliseconds: 300),
         child: AnimatedRotation(
-          turns: heading.quarterTurns / 4,
+          // +1 cuarto: el tablero se dibuja rotado 90° horario.
+          turns: (heading.quarterTurns + 1) / 4,
           duration: const Duration(milliseconds: 320),
           curve: Curves.easeOutBack,
           child: AnimatedContainer(
@@ -148,20 +198,25 @@ class _RobotSprite extends StatelessWidget {
 }
 
 class _BoardPainter extends CustomPainter {
-  const _BoardPainter({required this.level, required this.ghostCells});
+  const _BoardPainter({
+    required this.level,
+    required this.ghostCells,
+    required this.style,
+  });
 
   final BoardLevel level;
   final List<Cell> ghostCells;
+  final BoardStyle style;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cw = size.width / kBoardCols;
-    final ch = size.height / kBoardRows;
+    final cw = size.width / kVisualCols;
+    final ch = size.height / kVisualRows;
 
     // Celdas alternadas estilo tablero.
-    final cellPaint = Paint()..color = const Color(0xFFF2F9F8);
-    for (var r = 0; r < kBoardRows; r++) {
-      for (var c = 0; c < kBoardCols; c++) {
+    final cellPaint = Paint()..color = style.cellEven;
+    for (var r = 0; r < kVisualRows; r++) {
+      for (var c = 0; c < kVisualCols; c++) {
         if ((r + c).isEven) {
           canvas.drawRect(Rect.fromLTWH(c * cw, r * ch, cw, ch), cellPaint);
         }
@@ -170,17 +225,19 @@ class _BoardPainter extends CustomPainter {
 
     // Líneas de la cuadrícula.
     final gridPaint = Paint()
-      ..color = const Color(0xFFDCEBE9)
+      ..color = style.gridLine
       ..strokeWidth = 1.4;
-    for (var c = 1; c < kBoardCols; c++) {
+    for (var c = 1; c < kVisualCols; c++) {
       canvas.drawLine(Offset(c * cw, 0), Offset(c * cw, size.height), gridPaint);
     }
-    for (var r = 1; r < kBoardRows; r++) {
+    for (var r = 1; r < kVisualRows; r++) {
       canvas.drawLine(Offset(0, r * ch), Offset(size.width, r * ch), gridPaint);
     }
 
-    Offset center(Cell cell) =>
-        Offset((cell.col + 0.5) * cw, (cell.row + 0.5) * ch);
+    Offset center(Cell cell) {
+      final visual = visualCell(cell);
+      return Offset((visual.col + 0.5) * cw, (visual.row + 0.5) * ch);
+    }
 
     // Obstáculos: rocas redondeadas.
     final obstaclePaint = Paint()..color = const Color(0xFF8FA3B8);
@@ -272,5 +329,7 @@ class _BoardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BoardPainter oldDelegate) =>
-      oldDelegate.level != level || oldDelegate.ghostCells != ghostCells;
+      oldDelegate.level != level ||
+      oldDelegate.ghostCells != ghostCells ||
+      oldDelegate.style != style;
 }
