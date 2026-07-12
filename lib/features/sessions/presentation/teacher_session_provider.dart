@@ -95,6 +95,7 @@ class TeacherSessionController extends StateNotifier<TeacherSessionState> {
     required String name,
     List<String> trackIds = const [],
     String? groupId,
+    String gameMode = 'cards',
   }) async {
     state = state.copyWith(
       status: TeacherSessionStatus.creating,
@@ -105,6 +106,7 @@ class TeacherSessionController extends StateNotifier<TeacherSessionState> {
         name: name,
         trackIds: trackIds,
         groupId: groupId,
+        gameMode: gameMode,
       );
       state = TeacherSessionState(
         status: TeacherSessionStatus.active,

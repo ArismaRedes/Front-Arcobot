@@ -43,6 +43,7 @@ class TeacherSessionRepository {
     required String name,
     List<String> trackIds = const [],
     String? groupId,
+    String gameMode = 'cards',
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -50,6 +51,7 @@ class TeacherSessionRepository {
         data: {
           'name': name,
           'trackIds': trackIds,
+          'gameMode': gameMode,
           if (groupId != null) 'groupId': groupId,
         },
       );

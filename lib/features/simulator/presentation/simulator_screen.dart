@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:front_arcobot/core/theme/design_tokens.dart';
 import 'package:front_arcobot/core/widgets/arco_character.dart';
 import 'package:front_arcobot/features/simulator/presentation/board_widget.dart';
+import 'package:front_arcobot/features/sessions/presentation/student_session_provider.dart';
 import 'package:front_arcobot/features/simulator/presentation/command_blocks.dart';
+import 'package:front_arcobot/features/simulator/presentation/scratch_editor.dart';
 import 'package:front_arcobot/features/simulator/presentation/simulator_provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,9 +30,37 @@ class SimulatorScreen extends ConsumerStatefulWidget {
 }
 
 class _SimulatorScreenState extends ConsumerState<SimulatorScreen> {
+  /// false = tarjetas (modo enseñanza); true = bloques estilo Scratch.
+  bool _blocksMode = false;
+  final GlobalKey<ScratchEditorState> _editorKey = GlobalKey();
+
+  void _setMode(bool blocks) {
+    if (blocks == _blocksMode) {
+      return;
+    }
+    final controller = ref.read(simulatorProvider.notifier);
+    setState(() => _blocksMode = blocks);
+    // Cambiar de editor limpia el programa para no dejar estados a medias.
+    _editorKey.currentState?.clear();
+    controller
+      ..gameType = blocks ? 'scratch_blocks' : 'board_track'
+      ..clearProgram();
+  }
+
   @override
   void initState() {
     super.initState();
+    // Arranca en el modo que definió el docente para la clase; el niño
+    // puede cambiarlo con el toggle.
+    final session = ref.read(studentSessionProvider).valueOrNull;
+    if (session?.gameMode == 'blocks') {
+      _blocksMode = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(simulatorProvider.notifier).gameType = 'scratch_blocks';
+        }
+      });
+    }
     if (_isMobile) {
       SystemChrome.setPreferredOrientations(const [
         DeviceOrientation.landscapeLeft,
@@ -65,7 +95,13 @@ class _SimulatorScreenState extends ConsumerState<SimulatorScreen> {
       crashed: state.phase == SimPhase.blocked,
     );
 
-    final controls = _ControlsPanel(state: state, controller: controller);
+    final controls = _ControlsPanel(
+      state: state,
+      controller: controller,
+      blocksMode: _blocksMode,
+      onModeChanged: _setMode,
+      editorKey: _editorKey,
+    );
 
     return Scaffold(
       body: Container(
@@ -178,10 +214,24 @@ class _TopBar extends StatelessWidget {
 }
 
 class _ControlsPanel extends StatelessWidget {
-  const _ControlsPanel({required this.state, required this.controller});
+  const _ControlsPanel({
+    required this.state,
+    required this.controller,
+    required this.blocksMode,
+    required this.onModeChanged,
+    required this.editorKey,
+  });
 
   final SimulatorState state;
   final SimulatorController controller;
+  final bool blocksMode;
+  final ValueChanged<bool> onModeChanged;
+  final GlobalKey<ScratchEditorState> editorKey;
+
+  void _clearAll() {
+    editorKey.currentState?.clear();
+    controller.clearProgram();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -210,27 +260,59 @@ class _ControlsPanel extends StatelessWidget {
             _TopBar(state: state, controller: controller),
             const SizedBox(height: 10),
           ],
-          ProgramStrip(
-            program: state.program,
-            enabled: editing,
-            activeIndex: state.activeStep,
-            onDropAdd: controller.addCommand,
-            onRemoveAt: controller.removeCommandAt,
+          // Modo de juego: tarjetas (enseñanza) o bloques estilo Scratch.
+          Center(
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  icon: Icon(Icons.style_rounded, size: 16),
+                  label: Text('Tarjetas'),
+                ),
+                ButtonSegment(
+                  value: true,
+                  icon: Icon(Icons.extension_rounded, size: 16),
+                  label: Text('Bloques'),
+                ),
+              ],
+              selected: {blocksMode},
+              onSelectionChanged: editing
+                  ? (selection) => onModeChanged(selection.first)
+                  : null,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ),
-          const SizedBox(height: 14),
-          CommandPalette(
-            enabled: editing,
-            onAdd: controller.addCommand,
-          ),
+          const SizedBox(height: 12),
+          if (blocksMode)
+            ScratchEditor(
+              key: editorKey,
+              enabled: editing,
+              onProgramChanged: controller.setProgram,
+            )
+          else ...[
+            ProgramStrip(
+              program: state.program,
+              enabled: editing,
+              activeIndex: state.activeStep,
+              onDropAdd: controller.addCommand,
+              onRemoveAt: controller.removeCommandAt,
+            ),
+            const SizedBox(height: 14),
+            CommandPalette(
+              enabled: editing,
+              onAdd: controller.addCommand,
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
               IconButton(
                 tooltip: 'Borrar todo',
-                onPressed:
-                    editing && state.program.isNotEmpty
-                        ? controller.clearProgram
-                        : null,
+                onPressed: editing && state.program.isNotEmpty
+                    ? _clearAll
+                    : null,
                 icon: const Icon(Icons.delete_outline_rounded),
                 style: IconButton.styleFrom(
                   foregroundColor: ArcobotColors.coral,

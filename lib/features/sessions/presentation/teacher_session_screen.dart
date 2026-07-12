@@ -36,6 +36,7 @@ class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
   late final TextEditingController _nameController;
   final Set<String> _selectedTrackIds = {};
   String? _selectedGroupId;
+  String _gameMode = 'cards';
   _SessionViewMode _viewMode = _SessionViewMode.projection;
 
   @override
@@ -64,6 +65,7 @@ class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
           name: name.isEmpty ? 'Mi clase' : name,
           trackIds: trackIds,
           groupId: _selectedGroupId,
+          gameMode: _gameMode,
         );
     if (created && mounted) {
       // Al crear, arranca proyectando el PIN para que la clase entre.
@@ -205,6 +207,8 @@ class _TeacherSessionScreenState extends ConsumerState<TeacherSessionScreen> {
       selectedGroupId: _selectedGroupId,
       onGroupChanged: (id) => setState(() => _selectedGroupId = id),
       onCreateGroup: _createGroup,
+      gameMode: _gameMode,
+      onGameModeChanged: (mode) => setState(() => _gameMode = mode),
       onToggleTrack: (id) => setState(() {
         if (!_selectedTrackIds.remove(id)) {
           _selectedTrackIds.add(id);
@@ -226,6 +230,8 @@ class _CreateView extends ConsumerWidget {
     required this.selectedGroupId,
     required this.onGroupChanged,
     required this.onCreateGroup,
+    required this.gameMode,
+    required this.onGameModeChanged,
     required this.onToggleTrack,
     required this.onCreate,
     required this.onBack,
@@ -238,6 +244,8 @@ class _CreateView extends ConsumerWidget {
   final String? selectedGroupId;
   final ValueChanged<String?> onGroupChanged;
   final VoidCallback onCreateGroup;
+  final String gameMode;
+  final ValueChanged<String> onGameModeChanged;
   final ValueChanged<String> onToggleTrack;
   final VoidCallback onCreate;
   final VoidCallback onBack;
@@ -381,6 +389,22 @@ class _CreateView extends ConsumerWidget {
                       enabled: !creating,
                       onToggleTrack: onToggleTrack,
                     ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'MODO DE JUEGO',
+                      style: TextStyle(
+                        color: ArcobotPanelColors.subtle,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _GameModePicker(
+                      gameMode: gameMode,
+                      enabled: !creating,
+                      onChanged: onGameModeChanged,
+                    ),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -409,6 +433,124 @@ class _CreateView extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Modo de juego de la clase: tarjetas (enseñanza, más fácil) o bloques
+/// estilo Scratch (introduce loops y muestra el código Python/JS).
+class _GameModePicker extends StatelessWidget {
+  const _GameModePicker({
+    required this.gameMode,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String gameMode;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ModeOption(
+            selected: gameMode == 'cards',
+            enabled: enabled,
+            icon: Icons.style_rounded,
+            title: 'Tarjetas',
+            subtitle: 'Modo enseñanza, más fácil',
+            onTap: () => onChanged('cards'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ModeOption(
+            selected: gameMode == 'blocks',
+            enabled: enabled,
+            icon: Icons.extension_rounded,
+            title: 'Bloques',
+            subtitle: 'Estilo Scratch, con código',
+            onTap: () => onChanged('blocks'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeOption extends StatelessWidget {
+  const _ModeOption({
+    required this.selected,
+    required this.enabled,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final bool enabled;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? ArcobotColors.guideTurquoise.withValues(alpha: 0.12)
+          : ArcobotPanelColors.input,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? ArcobotColors.guideTurquoise
+                  : ArcobotPanelColors.border,
+              width: selected ? 1.4 : 0.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: selected
+                    ? ArcobotColors.guideTurquoise
+                    : ArcobotPanelColors.subtle,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: selected
+                      ? ArcobotPanelColors.textOnDark
+                      : ArcobotPanelColors.subtle,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: ArcobotPanelColors.hint,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
           ),
         ),
       ),

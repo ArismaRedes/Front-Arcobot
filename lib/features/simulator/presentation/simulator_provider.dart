@@ -23,13 +23,14 @@ final simulatorProvider =
       levels: levels,
       onProgress: session == null
           ? null
-          : (trackName, outcome, cardsUsed, snapshot, durationMs) =>
+          : (trackName, outcome, cardsUsed, snapshot, durationMs, gameType) =>
               ref.read(studentSessionProvider.notifier).reportProgress(
                     trackName: trackName,
                     outcome: outcome,
                     cardsUsed: cardsUsed,
                     snapshot: snapshot,
                     durationMs: durationMs,
+                    gameType: gameType,
                   ),
     );
   },
@@ -41,6 +42,7 @@ typedef SimProgressReporter = void Function(
   int cardsUsed,
   Map<String, dynamic>? snapshot,
   int? durationMs,
+  String gameType,
 );
 
 enum SimPhase { editing, running, success, blocked }
@@ -153,6 +155,10 @@ class SimulatorController extends StateNotifier<SimulatorState> {
   /// (alimenta el premio "más rápido" del reporte de la clase).
   DateTime _levelStartedAt = DateTime.now();
 
+  /// Modo con el que el niño arma el programa: 'board_track' (tarjetas)
+  /// o 'scratch_blocks' (bloques). Distingue los intentos en analíticas.
+  String gameType = 'board_track';
+
   /// Réplica mínima de la pantalla del niño para el "ojo" del docente.
   Map<String, dynamic> _snapshot() {
     final level = state.level;
@@ -187,6 +193,7 @@ class SimulatorController extends StateNotifier<SimulatorState> {
       cardsUsed,
       _snapshot(),
       durationMs,
+      gameType,
     );
   }
 
@@ -253,6 +260,18 @@ class SimulatorController extends StateNotifier<SimulatorState> {
       return;
     }
     state = state.copyWith(program: const []);
+    _reportLive();
+  }
+
+  /// Reemplaza el programa completo (lo usa el editor de bloques, que
+  /// compila sus bloques a comandos en cada cambio).
+  void setProgram(List<RobotCommand> program) {
+    if (state.phase != SimPhase.editing) {
+      return;
+    }
+    state = state.copyWith(
+      program: program.take(SimulatorState.maxProgramLength).toList(),
+    );
     _reportLive();
   }
 

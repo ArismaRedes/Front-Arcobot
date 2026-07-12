@@ -189,7 +189,7 @@ class _TrackCard extends StatelessWidget {
                 startHeading: track.startHeading,
                 goal: track.goal,
                 obstacles: track.obstacles,
-                cellSize: 15,
+                cellSize: 11,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -226,21 +226,25 @@ class _TrackCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Row(
-                      children: [
-                        _SmallAction(
-                          icon: Icons.edit_rounded,
-                          label: 'Editar',
-                          onPressed: onEdit,
-                        ),
-                        const SizedBox(width: 8),
-                        _SmallAction(
-                          icon: Icons.delete_outline_rounded,
-                          label: 'Eliminar',
-                          color: ArcobotPanelColors.errorText,
-                          onPressed: onDelete,
-                        ),
-                      ],
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        children: [
+                          _SmallAction(
+                            icon: Icons.edit_rounded,
+                            label: 'Editar',
+                            onPressed: onEdit,
+                          ),
+                          const SizedBox(width: 8),
+                          _SmallAction(
+                            icon: Icons.delete_outline_rounded,
+                            label: 'Eliminar',
+                            color: ArcobotPanelColors.errorText,
+                            onPressed: onDelete,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

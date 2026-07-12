@@ -81,6 +81,7 @@ class ClassSessionInfo {
     required this.name,
     required this.studentCount,
     this.trackCount = 0,
+    this.gameMode = 'cards',
   });
 
   factory ClassSessionInfo.fromJson(Map<String, dynamic> json) {
@@ -89,6 +90,7 @@ class ClassSessionInfo {
       name: json['name'] as String,
       studentCount: (json['studentCount'] as num?)?.toInt() ?? 0,
       trackCount: (json['trackCount'] as num?)?.toInt() ?? 0,
+      gameMode: json['gameMode'] as String? ?? 'cards',
     );
   }
 
@@ -96,6 +98,9 @@ class ClassSessionInfo {
   final String name;
   final int studentCount;
   final int trackCount;
+
+  /// Editor definido por el docente: 'cards' (tarjetas) o 'blocks' (Scratch).
+  final String gameMode;
 }
 
 /// Última jugada reportada por el simulador del estudiante.
@@ -170,6 +175,7 @@ class StudentSession {
     required this.avatar,
     required this.sessionPin,
     required this.sessionName,
+    this.gameMode = 'cards',
     this.tracks = const [],
   });
 
@@ -182,6 +188,7 @@ class StudentSession {
       avatar: json['avatar'] as String,
       sessionPin: session['pin'] as String? ?? '',
       sessionName: session['name'] as String? ?? '',
+      gameMode: session['gameMode'] as String? ?? 'cards',
     );
   }
 
@@ -191,6 +198,9 @@ class StudentSession {
   final String avatar;
   final String sessionPin;
   final String sessionName;
+
+  /// Editor definido por el docente: 'cards' o 'blocks' (Scratch).
+  final String gameMode;
 
   /// Pistas asignadas por el docente (vacío = usar las de demostración).
   final List<TrackInfo> tracks;
@@ -203,6 +213,7 @@ class StudentSession {
       avatar: avatar,
       sessionPin: sessionPin,
       sessionName: sessionName,
+      gameMode: gameMode,
       tracks: tracks,
     );
   }
